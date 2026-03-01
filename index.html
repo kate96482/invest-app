@@ -16,12 +16,18 @@
         .soft-shadow { box-shadow: 0 8px 30px rgba(0,0,0,0.04); }
         .gold-gradient { background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); }
 
-        /* 1:1 正方形畫布 (隱藏，僅截圖用) */
+        /* 核心修正：強制 1:1 正方形渲染區域，避免任何比例失效 */
         #renderCanvas {
-            position: absolute; left: -9999px; top: 0;
-            width: 500px; height: 500px;
-            background: white; padding: 40px;
-            display: flex; flex-direction: column; justify-content: space-between;
+            position: absolute;
+            left: -9999px;
+            top: 0;
+            width: 500px;
+            height: 500px;
+            background: #ffffff;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between; /* 確保內容均勻分布在正方形內 */
             box-sizing: border-box;
         }
     </style>
@@ -147,33 +153,33 @@
 
     <div id="renderCanvas">
         <div style="text-align: center;">
-            <h2 style="margin:0; font-size:32px; font-weight:900; color:#1e293b; letter-spacing:-1px;">資產分析報告</h2>
-            <p style="margin:6px 0 0 0; font-size:14px; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:2px;">Market Data Live Sync</p>
+            <h2 id="renderName" style="margin:0; font-size:32px; font-weight:900; color:#1e293b; letter-spacing:-1px;">客戶名稱</h2>
+            <p style="margin:6px 0 0 0; font-size:14px; color:#94a3b8; font-weight:600; letter-spacing:1px;">專業資產分析 · 即時市場同步</p>
         </div>
 
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
             <div style="grid-column: span 2; background:#0f172a; padding:30px; border-radius:35px; color:white; position:relative; overflow:hidden;">
-                <p style="margin:0; font-size:14px; opacity:0.5; font-weight:800; letter-spacing:1px;">總投資市值 (TWD)</p>
-                <p id="r-kpi1" style="margin:10px 0 0 0; font-size:48px; font-weight:900; letter-spacing:-2px;">$0</p>
-                <div style="position:absolute; right:-10px; bottom:-10px; font-size:80px; font-weight:900; color:white; opacity:0.03; font-style:italic;">ASSET</div>
+                <p style="margin:0; font-size:14px; opacity:0.6; font-weight:700; letter-spacing:1px;">總投資市值 (TWD)</p>
+                <p id="r-kpi1" style="margin:10px 0 0 0; font-size:48px; font-weight:900; letter-spacing:-1px;">$0</p>
+                <div style="position:absolute; right:-10px; bottom:-15px; font-size:70px; font-weight:900; font-style:italic; color:rgba(255,255,255,0.05);">ASSET</div>
             </div>
-            <div style="background:#eff6ff; padding:25px; border-radius:30px; position:relative; border:1px solid #dbeafe;">
-                <p style="margin:0; font-size:12px; color:#3b82f6; font-weight:900; letter-spacing:1px;">投入本金</p>
-                <p id="r-kpi2" style="margin:8px 0 0 0; font-size:24px; font-weight:900; color:#1e3a8a;">$0</p>
-                <span id="r-fluct" style="position:absolute; top:20px; right:20px; font-size:11px; font-weight:900; padding:4px 8px; border-radius:8px;"></span>
+            <div style="background:#eff6ff; padding:22px; border-radius:30px; position:relative; border:1px solid #dbeafe;">
+                <p style="margin:0; font-size:12px; color:#3b82f6; font-weight:800;">投入本金</p>
+                <p id="r-kpi2" style="margin:6px 0 0 0; font-size:24px; font-weight:900; color:#1e3a8a;">$0</p>
+                <span id="r-fluct" style="position:absolute; top:20px; right:20px; font-size:11px; font-weight:900; padding:3px 8px; border-radius:8px;"></span>
             </div>
-            <div style="background:#fffbeb; padding:25px; border-radius:30px; border:1px solid #fef3c7;">
-                <p style="margin:0; font-size:12px; color:#f59e0b; font-weight:900; letter-spacing:1px;">累積配息</p>
-                <p id="r-kpi3" style="margin:8px 0 0 0; font-size:24px; font-weight:900; color:#78350f;">$0</p>
+            <div style="background:#fffbeb; padding:22px; border-radius:30px; border:1px solid #fef3c7;">
+                <p style="margin:0; font-size:12px; color:#f59e0b; font-weight:800;">累積配息</p>
+                <p id="r-kpi3" style="margin:6px 0 0 0; font-size:24px; font-weight:900; color:#78350f;">$0</p>
             </div>
         </div>
 
-        <div>
-            <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:15px; padding:0 5px;">
-                <p style="margin:0; font-size:16px; font-weight:900; color:#1e293b;">配息回本趨勢</p>
-                <p id="r-payback" style="margin:0; font-size:32px; font-weight:900; color:#d97706; line-height:1;">0%</p>
+        <div style="background:#f8fafc; padding:25px; border-radius:35px; border:1px solid #f1f5f9;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:15px;">
+                <p style="margin:0; font-size:16px; font-weight:900; color:#1e293b;">配息回本趨勢分析</p>
+                <p id="r-payback" style="margin:0; font-size:28px; font-weight:900; color:#d97706;">0%</p>
             </div>
-            <div style="height:120px; width:100%; background:#f8fafc; border-radius:25px; display:flex; align-items:flex-end; padding:12px; gap:12px; box-sizing:border-box; border:1px solid #f1f5f9;">
+            <div style="height:100px; width:100%; display:flex; align-items:flex-end; gap:10px;">
                 <div style="flex:1; background:#fef3c7; border-radius:10px; height:20%;"></div>
                 <div style="flex:1; background:#fde68a; border-radius:10px; height:40%;"></div>
                 <div style="flex:1; background:#fcd34d; border-radius:10px; height:60%;"></div>
@@ -311,7 +317,8 @@
                 retEl.classList.remove('hidden');
                 retEl.innerText = (totalReturnRate >= 0 ? '+' : '') + totalReturnRate.toFixed(2) + '%';
 
-                // 同步更新截圖畫布數據
+                // 同步更新截圖畫布
+                document.getElementById('renderName').innerText = targetName;
                 document.getElementById('r-kpi1').innerText = '$' + Math.round(k.mv).toLocaleString();
                 document.getElementById('r-kpi2').innerText = '$' + Math.round(k.cap).toLocaleString();
                 document.getElementById('r-kpi3').innerText = '$' + Math.round(k.div).toLocaleString();
@@ -373,38 +380,38 @@
             });
         }
 
-        // 截圖邏輯
+        // 截圖邏輯：強制獲取固定尺寸畫布
         document.getElementById('exportImgBtn').addEventListener('click', async function() {
             const overlay = document.getElementById('loadingOverlay');
             overlay.classList.remove('hidden');
 
             try {
-                const canvas = await html2canvas(document.getElementById('renderCanvas'), {
-                    scale: 3,
+                const target = document.getElementById('renderCanvas');
+                const canvas = await html2canvas(target, {
+                    scale: 3, // 高清輸出
                     width: 500,
                     height: 500,
                     backgroundColor: "#ffffff",
                     logging: false,
-                    useCORS: true
+                    useCORS: true,
+                    allowTaint: true
                 });
 
                 const imgData = canvas.toDataURL("image/png");
                 const preview = document.createElement('div');
-                preview.className = "fixed inset-0 bg-black/90 z-[10000] flex flex-col items-center justify-center p-6";
-                
-                // 強制固定 380px 正方形預覽，避免電腦端長方形變形
+                preview.className = "fixed inset-0 bg-black/95 z-[10000] flex flex-col items-center justify-center p-6";
                 preview.innerHTML = `
-                    <div style="width:380px; height:380px; border-radius:24px; overflow:hidden; box-shadow:0 30px 60px rgba(0,0,0,0.5); background:white;">
+                    <div style="width:100%; max-width:400px; aspect-ratio:1/1; border-radius:30px; overflow:hidden; box-shadow:0 30px 60px rgba(0,0,0,0.8); background:white;">
                         <img src="${imgData}" style="width:100%; height:100%; object-fit:contain; display:block;">
                     </div>
-                    <p class="text-white font-bold mt-8 mb-2">1:1 圖卡已生成</p>
-                    <p class="text-white/50 text-xs mb-8">請長按圖片儲存影像</p>
-                    <button onclick="this.parentElement.remove()" class="bg-white text-black px-10 py-3 rounded-full font-bold active:scale-95 transition-transform">關閉預覽</button>
+                    <p class="text-white font-black text-xl mt-10 mb-2">1:1 圖卡製作完成</p>
+                    <p class="text-white/40 text-sm mb-10">請長按圖片儲存至相簿</p>
+                    <button onclick="this.parentElement.remove()" class="bg-white text-black px-12 py-4 rounded-2xl font-black shadow-xl active:scale-95 transition-all">關閉預覽</button>
                 `;
                 document.body.appendChild(preview);
             } catch (err) {
                 console.error(err);
-                alert("圖片生成失敗");
+                alert("圖片生成失敗，請再試一次");
             } finally {
                 overlay.classList.add('hidden');
             }
