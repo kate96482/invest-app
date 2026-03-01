@@ -135,13 +135,13 @@
     </div>
 
     <div id="renderCanvas">
-        <div style="background:#0f172a; padding:35px; border-radius:35px; color:white; position:relative; overflow:hidden;">
+        <div style="background:#0f172a; padding:35px; border-radius:35px; color:white; position:relative; overflow:hidden; flex-shrink:0;">
             <p style="margin:0; font-size:16px; opacity:0.6; font-weight:700; letter-spacing:1px;">總投資市值 (TWD)</p>
             <p id="r-kpi1" style="margin:12px 0 0 0; font-size:52px; font-weight:900; letter-spacing:-2px;">$0</p>
             <div style="position:absolute; right:-10px; bottom:-10px; font-size:90px; font-weight:900; color:rgba(255,255,255,0.05); font-style:italic;">ASSET</div>
         </div>
 
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; flex-shrink:0;">
             <div style="background:#eff6ff; padding:22px; border-radius:28px; border:1px solid #dbeafe; position:relative;">
                 <p style="margin:0; font-size:13px; color:#3b82f6; font-weight:800;">投入本金</p>
                 <p id="r-kpi2" style="margin:6px 0 0 0; font-size:24px; font-weight:900; color:#1e3a8a;">$0</p>
@@ -163,12 +163,12 @@
             </div>
         </div>
 
-        <div style="background:#ffffff; padding:25px; border-radius:30px; border:1px solid #f1f5f9; flex:1; display:flex; flex-direction:column;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <div style="background:#ffffff; padding:25px; border-radius:30px; border:1px solid #f1f5f9; flex:1; display:flex; flex-direction:column; min-height:0;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-shrink:0;">
                 <p style="margin:0; font-size:14px; font-weight:900; color:#1e293b;">長期配息增長趨勢</p>
                 <p id="r-indivDiv" style="margin:0; font-size:20px; font-weight:900; color:#f59e0b;">$0</p>
             </div>
-            <div style="flex:1; display:flex; align-items:flex-end; gap:8px; background:#f8fafc; padding:15px; border-radius:20px;">
+            <div style="flex:1; display:flex; align-items:flex-end; gap:8px; background:#f8fafc; padding:15px; border-radius:20px; min-height:100px;">
                 <div id="r-bar1" style="flex:1; background:#fef3c7; border-radius:8px 8px 0 0; height:20%;"></div>
                 <div id="r-bar2" style="flex:1; background:#fde68a; border-radius:8px 8px 0 0; height:35%;"></div>
                 <div id="r-bar3" style="flex:1; background:#fcd34d; border-radius:8px 8px 0 0; height:55%;"></div>
@@ -177,7 +177,7 @@
             </div>
         </div>
 
-        <div style="padding-top:10px; display:flex; justify-content:space-between; align-items:center;">
+        <div style="padding-top:10px; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
             <p style="margin:0; font-size:12px; color:#cbd5e1; font-weight:800; letter-spacing:2px;">PRO ANALYTICS SYSTEM</p>
             <div style="display:flex; gap:6px;">
                 <div style="width:8px; height:8px; border-radius:50%; background:#3b82f6;"></div>
@@ -213,7 +213,7 @@
                 });
                 document.getElementById('rateDisplay').innerText = currentUsdRate.toFixed(2);
             } catch (e) {
-                console.error("市場數據同步失敗，使用預設值", e);
+                console.error("市場數據同步失敗", e);
             }
         }
 
@@ -284,12 +284,11 @@
                 k.mv += res.mvTwd; k.div += res.divTwd; k.month += res.monthDiv; k.total += res.totalTwd; k.cap += res.capitalTwd;
             });
 
-            // 計算比例
             const fluctPct = k.cap > 0 ? ((k.mv - k.cap) / k.cap) * 100 : 0;
             const annualYield = k.mv > 0 ? (k.month * 12 / k.mv) * 100 : 0;
             const totalReturnRate = k.cap > 0 ? (k.total / k.cap) * 100 : 0;
 
-            // 更新介面
+            // UI 顯示
             document.getElementById('kpi1').innerText = '$' + Math.round(k.mv).toLocaleString();
             document.getElementById('kpi2').innerText = '$' + Math.round(k.cap).toLocaleString();
             document.getElementById('kpi3').innerText = '$' + Math.round(k.div).toLocaleString();
@@ -305,51 +304,48 @@
                 yieldEl.classList.add('hidden');
                 retEl.classList.add('hidden');
             } else {
-                // 市場波動
                 pctEl.classList.remove('hidden');
                 pctEl.innerText = (fluctPct >= 0 ? '+' : '') + fluctPct.toFixed(2) + '%';
                 pctEl.className = `absolute top-4 right-4 text-[9px] font-black px-1.5 py-0.5 rounded-md ${fluctPct >= 0 ? 'text-emerald-600 bg-emerald-100/50' : 'text-rose-600 bg-rose-100/50'}`;
                 
-                // 年化配息率
                 yieldEl.classList.remove('hidden');
                 yieldEl.innerText = annualYield.toFixed(2) + '%';
 
-                // 含息報酬率
                 retEl.classList.remove('hidden');
                 retEl.innerText = (totalReturnRate >= 0 ? '+' : '') + totalReturnRate.toFixed(2) + '%';
                 retEl.className = `absolute top-4 right-4 text-[9px] font-black px-1.5 py-0.5 rounded-md ${totalReturnRate >= 0 ? 'text-emerald-600 bg-emerald-100/50' : 'text-rose-600 bg-rose-100/50'}`;
 
                 document.getElementById('indivDivTotal').innerText = '$' + Math.round(k.div).toLocaleString();
-
-                // --- 同步數據至截圖畫布 ---
-                document.getElementById('r-kpi1').innerText = '$' + Math.round(k.mv).toLocaleString();
-                document.getElementById('r-kpi2').innerText = '$' + Math.round(k.cap).toLocaleString();
-                document.getElementById('r-kpi3').innerText = '$' + Math.round(k.div).toLocaleString();
-                document.getElementById('r-kpi4').innerText = '$' + Math.round(k.month).toLocaleString();
-                document.getElementById('r-kpi5').innerText = '$' + Math.round(k.total).toLocaleString();
-                document.getElementById('r-indivDiv').innerText = '$' + Math.round(k.div).toLocaleString();
-                
-                // 修正：同步階梯圖的高度
-                const divTbody = document.querySelector('#individualAnalysis div.h-24');
-                const bars = divTbody.querySelectorAll('div[id^="bar"]');
-                bars.forEach((bar, index) => {
-                    document.getElementById('r-bar' + (index+1)).style.height = bar.style.height;
-                });
-
-                // 畫布上的小標籤
-                const rf = document.getElementById('r-fluct');
-                rf.innerText = (fluctPct >= 0 ? '+' : '') + fluctPct.toFixed(2) + '%';
-                rf.style.backgroundColor = fluctPct >= 0 ? '#d1fae5' : '#fee2e2';
-                rf.style.color = fluctPct >= 0 ? '#059669' : '#dc2626';
-
-                const ry = document.getElementById('r-yield');
-                ry.innerText = annualYield.toFixed(2) + '%';
-
-                const rr = document.getElementById('r-return');
-                rr.innerText = (totalReturnRate >= 0 ? '+' : '') + totalReturnRate.toFixed(2) + '%';
-                rr.style.backgroundColor = totalReturnRate >= 0 ? '#d1fae5' : '#fee2e2';
-                rr.style.color = totalReturnRate >= 0 ? '#059669' : '#dc2626';
             }
+
+            // --- 關鍵修正：同步更新至截圖畫布 (renderCanvas) ---
+            document.getElementById('r-kpi1').innerText = '$' + Math.round(k.mv).toLocaleString();
+            document.getElementById('r-kpi2').innerText = '$' + Math.round(k.cap).toLocaleString();
+            document.getElementById('r-kpi3').innerText = '$' + Math.round(k.div).toLocaleString();
+            document.getElementById('r-kpi4').innerText = '$' + Math.round(k.month).toLocaleString();
+            document.getElementById('r-kpi5').innerText = '$' + Math.round(k.total).toLocaleString();
+            document.getElementById('r-indivDiv').innerText = '$' + Math.round(k.div).toLocaleString();
+
+            // 修正市場波動與回本率顯示
+            const rf = document.getElementById('r-fluct');
+            rf.innerText = (fluctPct >= 0 ? '+' : '') + fluctPct.toFixed(2) + '%';
+            rf.style.backgroundColor = fluctPct >= 0 ? '#d1fae5' : '#fee2e2';
+            rf.style.color = fluctPct >= 0 ? '#059669' : '#dc2626';
+
+            const ry = document.getElementById('r-yield');
+            ry.innerText = annualYield.toFixed(2) + '%';
+
+            const rr = document.getElementById('r-return');
+            rr.innerText = (totalReturnRate >= 0 ? '+' : '') + totalReturnRate.toFixed(2) + '%';
+            rr.style.backgroundColor = totalReturnRate >= 0 ? '#d1fae5' : '#fee2e2';
+            rr.style.color = totalReturnRate >= 0 ? '#059669' : '#dc2626';
+
+            // 同步階梯圖高度
+            const originalBars = document.querySelectorAll('#individualAnalysis div.h-24 div[id^="bar"]');
+            originalBars.forEach((bar, index) => {
+                const rBar = document.getElementById('r-bar' + (index + 1));
+                if (rBar) rBar.style.height = bar.style.height;
+            });
         }
 
         document.getElementById('clientSelector').addEventListener('change', e => {
@@ -377,7 +373,9 @@
             const isAll = name === 'all';
             const filtered = isAll ? rawData : rawData.filter(d => d['客戶名稱'] === name);
             const tbody = document.getElementById('dataTableBody');
+            
             calculateAndDisplayKpi(name);
+            
             document.getElementById('individualAnalysis').classList.toggle('hidden', isAll);
             document.getElementById('tableWrapper').classList.remove('hidden');
             tbody.innerHTML = '';
@@ -397,19 +395,23 @@
             });
         }
 
-        // 截圖邏輯
         document.getElementById('exportImgBtn').addEventListener('click', async function() {
             const overlay = document.getElementById('loadingOverlay');
             overlay.classList.remove('hidden');
 
             try {
+                // 渲染前再次確保數據同步
+                const currentClient = document.getElementById('clientSelector').value;
+                calculateAndDisplayKpi(currentClient === 'none' ? 'all' : currentClient);
+
                 const canvas = await html2canvas(document.getElementById('renderCanvas'), {
                     scale: 3,
                     width: 600,
                     height: 600,
                     backgroundColor: "#ffffff",
                     logging: false,
-                    useCORS: true
+                    useCORS: true,
+                    allowTaint: true
                 });
 
                 const imgData = canvas.toDataURL("image/png");
