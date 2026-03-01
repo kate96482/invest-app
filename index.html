@@ -64,20 +64,29 @@
                     </div>
                     <div class="absolute -right-4 -bottom-4 text-white/5 text-6xl font-black italic uppercase" id="kpiLabelBg">Asset</div>
                 </div>
-                <div class="bg-blue-50 p-5 rounded-[2rem] border border-blue-100/50">
-                    <p class="text-[10px] font-bold text-blue-400 uppercase mb-1">本金獲利</p>
+
+                <div class="bg-blue-50 p-5 rounded-[2rem] border border-blue-100/50 relative">
+                    <div class="flex justify-between items-start">
+                        <p class="text-[10px] font-bold text-blue-400 uppercase mb-1">投入本金</p>
+                        <span id="marketFluct" class="text-[10px] font-black px-1.5 py-0.5 rounded-md"></span>
+                    </div>
                     <p id="kpi2" class="text-lg font-black text-blue-900">$0</p>
                 </div>
+
                 <div class="bg-amber-50 p-5 rounded-[2rem] border border-amber-100/50">
                     <p class="text-[10px] font-bold text-amber-500 uppercase mb-1">累積配息</p>
                     <p id="kpi3" class="text-lg font-black text-amber-900">$0</p>
                 </div>
                 <div id="monthlyDivCard" class="bg-indigo-50 p-5 rounded-[2rem] border border-indigo-100/50">
-                    <p class="text-[10px] font-bold text-indigo-500 uppercase mb-1">每月配息</p>
+                    <p class="text-[10px] font-bold text-indigo-500 uppercase mb-1">預估月配息</p>
                     <p id="kpi4" class="text-lg font-black text-indigo-900">$0</p>
                 </div>
+
                 <div class="bg-emerald-50 p-5 rounded-[2rem] border border-emerald-100/50">
-                    <p class="text-[10px] font-bold text-emerald-600 uppercase mb-1">含息總報酬</p>
+                    <div class="flex justify-between items-center mb-1">
+                        <p class="text-[10px] font-bold text-emerald-600 uppercase">含息總報酬</p>
+                        <span id="totalReturnRate" class="text-[10px] font-black text-emerald-700"></span>
+                    </div>
                     <p id="kpi5" class="text-lg font-black text-emerald-900">$0</p>
                 </div>
             </div>
@@ -182,15 +191,17 @@
             const mvTwd = units * fund.nav * currentUsdRate;
             const monthDiv = units * fund.divRate * currentUsdRate;
 
-            let divTwd, totalTwd;
+            let divTwd, totalTwd, capitalTwd;
             if (currency === '美元' || currency === 'USD') {
                 divTwd = cumDiv * currentUsdRate;
+                capitalTwd = capital * currentUsdRate;
                 totalTwd = (cumDiv + (units * fund.nav) - capital) * currentUsdRate;
             } else {
                 divTwd = cumDiv; 
+                capitalTwd = capital;
                 totalTwd = (cumDiv + mvTwd) - capital;
             }
-            return { mvTwd, divTwd, totalTwd, monthDiv, capitalTwd: (currency === '美元' || currency === 'USD') ? capital * currentUsdRate : capital };
+            return { mvTwd, divTwd, totalTwd, monthDiv, capitalTwd };
         }
 
         function initDashboard() {
@@ -224,13 +235,24 @@
                 const res = calcRow(r);
                 k.mv += res.mvTwd; k.div += res.divTwd; k.month += res.monthDiv; k.total += res.totalTwd; k.cap += res.capitalTwd;
             });
+
+            const fluct = k.mv - k.cap;
+            const totalReturnRate = k.cap > 0 ? (((k.div + k.mv) / k.cap) - 1) * 100 : 0;
+
             document.getElementById('kpi1').innerText = '$' + Math.round(k.mv).toLocaleString();
-            document.getElementById('kpi2').innerText = '$' + Math.round(k.total - k.div).toLocaleString();
+            document.getElementById('kpi2').innerText = '$' + Math.round(k.cap).toLocaleString();
             document.getElementById('kpi3').innerText = '$' + Math.round(k.div).toLocaleString();
             document.getElementById('kpi4').innerText = '$' + Math.round(k.month).toLocaleString();
             document.getElementById('kpi5').innerText = '$' + Math.round(k.total).toLocaleString();
             
-            // 如果是個別客戶，更新專屬面板數據
+            // 更新波動標籤
+            const fluctEl = document.getElementById('marketFluct');
+            fluctEl.innerText = (fluct >= 0 ? '+' : '') + Math.round(fluct).toLocaleString();
+            fluctEl.className = `text-[10px] font-black px-1.5 py-0.5 rounded-md ${fluct >= 0 ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`;
+            
+            // 更新報酬率
+            document.getElementById('totalReturnRate').innerText = totalReturnRate.toFixed(2) + '%';
+
             if(targetName !== 'all') {
                 document.getElementById('indivDivTotal').innerText = '$' + Math.round(k.div).toLocaleString();
                 const paybackRate = k.cap > 0 ? ((k.div / k.cap) * 100).toFixed(2) : 0;
@@ -267,14 +289,11 @@
             const filtered = isAll ? rawData : rawData.filter(d => d['客戶名稱'] === name);
             const tbody = document.getElementById('dataTableBody');
             
-            // 更新核心 KPI
             const stats = calculateAndDisplayKpi(name);
             
-            // 切換分析視圖
             document.getElementById('individualAnalysis').classList.toggle('hidden', isAll);
             document.getElementById('tableWrapper').classList.remove('hidden');
             
-            // 如果是選擇個別客戶，主 KPI 顯示月領配息，強化視覺效果
             if(!isAll) {
                 document.getElementById('kpi1').innerText = '$' + Math.round(stats.month).toLocaleString();
             }
@@ -298,4 +317,3 @@
     </script>
 </body>
 </html>
-
