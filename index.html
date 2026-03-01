@@ -3,109 +3,109 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>投資型保單深度分析系統</title>
+    <title>保單理財小管家</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
-        body { font-family: 'Inter', -apple-system, sans-serif; letter-spacing: -0.01em; }
-        #loadingOverlay { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 9999; }
-        @media (max-width: 640px) {
-            .mobile-grid { grid-template-columns: repeat(2, 1fr); }
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; }
+        
+        #loadingOverlay { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); z-index: 9999; }
+        
+        /* 1+2x2 矩陣配置 */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
         }
-        .card-shadow { box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); }
+        .kpi-card-main {
+            grid-column: span 2;
+        }
+        
+        .soft-shadow { box-shadow: 0 8px 30px rgba(0,0,0,0.04); }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900 antialiased pb-20">
+<body class="pb-10">
 
-    <div id="loadingOverlay" class="hidden fixed inset-0 bg-white/70 flex flex-col items-center justify-center">
-        <div class="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-        <p class="mt-4 text-blue-600 font-bold tracking-widest animate-pulse">深度分析引擎計算中...</p>
+    <div id="loadingOverlay" class="hidden fixed inset-0 bg-white/60 flex flex-col items-center justify-center">
+        <div class="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+        <p class="mt-4 text-indigo-600 font-bold">數據精確計算中...</p>
     </div>
 
-    <div class="max-w-7xl mx-auto px-4 py-8">
-        <header class="flex justify-between items-end mb-8">
+    <div class="max-w-md mx-auto px-4 py-6">
+        <header class="mb-6 flex justify-between items-center">
             <div>
-                <h1 class="text-3xl font-black tracking-tighter text-slate-800">資產分析 <span class="text-blue-600">INSIGHT</span></h1>
-                <p class="text-slate-400 text-sm font-medium">Professional Investment Portfolio Analytics</p>
+                <h1 class="text-2xl font-black text-slate-800">資產分析助手</h1>
+                <p class="text-slate-400 text-xs">投資狀態一眼搞定</p>
             </div>
-            <div class="text-right">
-                <div class="inline-block bg-white px-4 py-2 rounded-2xl border border-slate-200 shadow-sm">
-                    <p class="text-[10px] text-slate-400 font-bold uppercase">即時匯率 USD/TWD</p>
-                    <p id="rateDisplay" class="text-sm font-black text-blue-600">載入中...</p>
-                </div>
+            <div class="bg-indigo-50 px-3 py-1 rounded-full text-right">
+                <span class="text-[10px] text-indigo-400 font-bold block leading-none">USD/TWD</span>
+                <span id="rateDisplay" class="text-xs font-black text-indigo-600">載入中</span>
             </div>
         </header>
 
-        <div id="uploadArea" class="bg-white p-12 rounded-[3rem] card-shadow border-2 border-dashed border-slate-200 text-center mb-8">
-            <div class="bg-blue-50 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 rotate-3">
-                <svg class="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-            </div>
-            <h3 class="text-xl font-bold mb-2">導入分析數據</h3>
-            <p class="text-slate-400 mb-8">支援 .xlsx 格式的保單明細檔案</p>
-            <input type="file" id="upload" accept=".xlsx, .xls" class="mx-auto block w-64 text-sm text-slate-500 file:mr-4 file:py-3 file:px-8 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-slate-900 file:text-white cursor-pointer hover:file:bg-blue-600 transition-all"/>
+        <div id="uploadArea" class="bg-white p-10 rounded-[2.5rem] soft-shadow border-2 border-dashed border-slate-200 text-center mb-6">
+            <div class="text-5xl mb-4">📥</div>
+            <h3 class="font-bold text-slate-700 text-lg">請導入 Excel 檔案</h3>
+            <p class="text-slate-400 text-sm mb-8">開始您的專業分析</p>
+            <input type="file" id="upload" accept=".xlsx, .xls" class="hidden"/>
+            <button onclick="document.getElementById('upload').click()" class="bg-slate-900 text-white w-full py-4 rounded-2xl font-bold shadow-xl">選擇檔案</button>
         </div>
 
-        <div id="dashboard" class="hidden space-y-6">
-            <div class="grid gap-4 mobile-grid lg:grid-cols-5">
-                <div class="bg-slate-900 p-6 rounded-[2rem] card-shadow text-white">
-                    <p class="text-[10px] font-bold opacity-60 uppercase mb-2">總投資市值</p>
-                    <p id="kpi1" class="text-2xl font-black tracking-tight">$0</p>
+        <div id="dashboard" class="hidden space-y-4">
+            
+            <div class="flex justify-end">
+                <button onclick="location.reload()" class="text-xs font-bold text-slate-400 flex items-center gap-1 hover:text-indigo-600 transition-colors">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    重新上傳檔案
+                </button>
+            </div>
+
+            <div class="kpi-grid">
+                <div class="kpi-card-main bg-slate-900 p-6 rounded-[2.5rem] text-white shadow-2xl">
+                    <p class="text-xs font-bold opacity-50 mb-1 tracking-widest">總投資市值 (TWD)</p>
+                    <p id="kpi1" class="text-3xl font-black tracking-tight">$0</p>
                 </div>
-                <div class="bg-white p-6 rounded-[2rem] card-shadow border-t-4 border-blue-500">
-                    <p class="text-[10px] font-bold text-blue-500 uppercase mb-2">本金獲利</p>
-                    <p id="kpi2" class="text-2xl font-black text-slate-800 tracking-tight">$0</p>
+
+                <div class="bg-blue-100/50 p-5 rounded-[2rem] border border-blue-100">
+                    <p class="text-[10px] font-bold text-blue-500 uppercase mb-1">本金獲利</p>
+                    <p id="kpi2" class="text-lg font-black text-blue-800">$0</p>
                 </div>
-                <div class="bg-white p-6 rounded-[2rem] card-shadow border-t-4 border-amber-500">
-                    <p class="text-[10px] font-bold text-amber-500 uppercase mb-2">累積配息</p>
-                    <p id="kpi3" class="text-2xl font-black text-slate-800 tracking-tight">$0</p>
+                <div class="bg-amber-100/50 p-5 rounded-[2rem] border border-amber-100">
+                    <p class="text-[10px] font-bold text-amber-600 uppercase mb-1">累積配息</p>
+                    <p id="kpi3" class="text-lg font-black text-amber-800">$0</p>
                 </div>
-                <div class="bg-white p-6 rounded-[2rem] card-shadow border-t-4 border-indigo-500">
-                    <p class="text-[10px] font-bold text-indigo-500 uppercase mb-2">預估月配息</p>
-                    <p id="kpi4" class="text-2xl font-black text-slate-800 tracking-tight">$0</p>
+                <div class="bg-indigo-100/50 p-5 rounded-[2rem] border border-indigo-100">
+                    <p class="text-[10px] font-bold text-indigo-500 uppercase mb-1">預估月配息</p>
+                    <p id="kpi4" class="text-lg font-black text-indigo-800">$0</p>
                 </div>
-                <div class="bg-emerald-600 p-6 rounded-[2rem] card-shadow text-white">
-                    <p class="text-[10px] font-bold opacity-80 uppercase mb-2">含息總報酬</p>
-                    <p id="kpi5" class="text-2xl font-black tracking-tight">$0</p>
+                <div class="bg-emerald-100/50 p-5 rounded-[2rem] border border-emerald-100">
+                    <p class="text-[10px] font-bold text-emerald-600 uppercase mb-1">含息總報酬</p>
+                    <p id="kpi5" class="text-lg font-black text-emerald-800">$0</p>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <div class="lg:col-span-4 space-y-6">
-                    <div class="bg-white p-6 rounded-[2.5rem] card-shadow border border-slate-100">
-                        <label class="block text-xs font-bold text-slate-400 mb-4 uppercase tracking-widest">分析切換</label>
-                        <select id="clientSelector" class="w-full bg-slate-50 border-0 p-4 rounded-2xl text-slate-800 font-bold outline-none mb-4 ring-1 ring-slate-100 focus:ring-2 focus:ring-blue-500 transition-all"></select>
-                        <button id="toggleAllBtn" class="w-full py-4 text-sm font-bold text-blue-600 bg-blue-50 rounded-2xl hover:bg-blue-100 transition-all">檢視全體資產名細</button>
-                    </div>
-                    
-                    <div id="chartContainer" class="bg-white p-8 rounded-[2.5rem] card-shadow border border-slate-100 hidden">
-                        <h4 class="text-center text-xs font-bold text-slate-400 uppercase mb-4">客戶資產畫像深度分析</h4>
+            <div class="bg-white p-6 rounded-[2.5rem] soft-shadow">
+                <div class="flex items-center justify-between mb-4">
+                    <label class="text-sm font-black text-slate-700">分析對象</label>
+                    <button id="toggleAllBtn" class="text-xs bg-slate-100 px-3 py-1 rounded-full font-bold text-slate-500">查看全體</button>
+                </div>
+                <select id="clientSelector" class="w-full bg-slate-50 border-0 p-4 rounded-2xl font-bold text-slate-800 mb-6 focus:ring-2 focus:ring-indigo-500 transition-all"></select>
+                
+                <div id="chartWrapper" class="hidden">
+                    <div class="bg-slate-50 p-4 rounded-[2rem]">
                         <canvas id="analysisChart"></canvas>
                     </div>
                 </div>
+            </div>
 
-                <div class="lg:col-span-8">
-                    <div id="tableWrapper" class="hidden bg-white rounded-[2.5rem] card-shadow border border-slate-100 overflow-hidden">
-                        <div class="p-6 border-b border-slate-50 flex justify-between items-center">
-                            <h3 class="font-bold text-slate-800">保單組成明細</h3>
-                            <span class="text-[10px] bg-slate-100 px-3 py-1 rounded-full font-bold text-slate-500 uppercase">TWD Settlement</span>
-                        </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left text-sm">
-                                <thead class="bg-slate-50/50 text-[10px] font-bold text-slate-400 uppercase">
-                                    <tr>
-                                        <th class="p-6">保單持有者</th>
-                                        <th class="p-6 text-right">投入本金</th>
-                                        <th class="p-6 text-right">預估月收</th>
-                                        <th class="p-6 text-right">總報酬</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="dataTableBody" class="divide-y divide-slate-50"></tbody>
-                            </table>
-                        </div>
-                    </div>
+            <div id="tableWrapper" class="hidden bg-white rounded-[2.5rem] soft-shadow overflow-hidden">
+                <div class="p-5 border-b border-slate-50 flex justify-between items-center">
+                    <span class="font-black text-slate-700 text-sm">數據名細</span>
+                    <span class="text-[10px] font-bold text-slate-400">TWD</span>
                 </div>
+                <div id="dataTableBody" class="divide-y divide-slate-50"></div>
             </div>
         </div>
     </div>
@@ -127,9 +127,9 @@
                 const data = await response.json();
                 if(data.rates.TWD) {
                     currentUsdRate = data.rates.TWD;
-                    document.getElementById('rateDisplay').innerText = 'NT$ ' + currentUsdRate.toFixed(2);
+                    document.getElementById('rateDisplay').innerText = currentUsdRate.toFixed(2);
                 }
-            } catch(e) { document.getElementById('rateDisplay').innerText = 'NT$ ' + currentUsdRate + " (Est.)"; }
+            } catch(e) { document.getElementById('rateDisplay').innerText = currentUsdRate + " (預估)"; }
         }
 
         document.getElementById('upload').addEventListener('change', function(e) {
@@ -164,7 +164,7 @@
                 monthDiv = units * fund.divRate * currentUsdRate;
             } else {
                 divTwd = cumDiv; costTwd = capital; totalTwd = (cumDiv + mvTwd) - capital;
-                monthDiv = units * fund.divRate * currentUsdRate;
+                monthDiv = units * fund.divRate * 1;
             }
             return { mvTwd, divTwd, costTwd, totalTwd, monthDiv, capRaw: capital };
         }
@@ -177,16 +177,7 @@
             [...new Set(rawData.map(i => i['客戶名稱']))].forEach(c => {
                 const opt = document.createElement('option'); opt.value = c; opt.innerText = c; selector.appendChild(opt);
             });
-            updateOverallKpi();
-        }
-
-        function updateOverallKpi() {
-            let totalKpi = { mv: 0, div: 0, month: 0, total: 0 };
-            rawData.forEach(r => {
-                const res = calcRow(r);
-                totalKpi.mv += res.mvTwd; totalKpi.div += res.divTwd; totalKpi.month += res.monthDiv; totalKpi.total += res.totalTwd;
-            });
-            updateKpiUI(totalKpi);
+            renderAnalysis('all');
         }
 
         function updateKpiUI(k) {
@@ -206,59 +197,49 @@
             const filtered = isAll ? rawData : rawData.filter(d => d['客戶名稱'] === name);
             const tbody = document.getElementById('dataTableBody');
             document.getElementById('tableWrapper').classList.remove('hidden');
-            document.getElementById('chartContainer').classList.toggle('hidden', isAll);
+            document.getElementById('chartWrapper').classList.toggle('hidden', isAll);
             
             tbody.innerHTML = '';
-            let clientKpi = { mv: 0, div: 0, month: 0, total: 0, cost: 0 };
+            let k = { mv: 0, div: 0, month: 0, total: 0, cost: 0 };
 
             filtered.forEach(r => {
                 const res = calcRow(r);
-                clientKpi.mv += res.mvTwd; clientKpi.div += res.divTwd; clientKpi.month += res.monthDiv; clientKpi.total += res.totalTwd; clientKpi.cost += res.costTwd;
+                k.mv += res.mvTwd; k.div += res.divTwd; k.month += res.monthDiv; k.total += res.totalTwd; k.cost += res.costTwd;
                 tbody.innerHTML += `
-                    <tr class="hover:bg-slate-50/80 transition-colors">
-                        <td class="p-6">
-                            <span class="font-bold text-slate-700">${r['客戶名稱']}</span><br>
-                            <span class="text-[10px] text-slate-400 font-mono">${r['保單號碼']} | ${r['基金標的']}</span>
-                        </td>
-                        <td class="p-6 text-right font-mono text-slate-500">${res.capRaw.toLocaleString()}</td>
-                        <td class="p-6 text-right font-bold text-indigo-600">$${Math.round(res.monthDiv).toLocaleString()}</td>
-                        <td class="p-6 text-right font-black ${res.totalTwd >=0 ? 'text-emerald-600' : 'text-rose-500'}">$${Math.round(res.totalTwd).toLocaleString()}</td>
-                    </tr>`;
+                    <div class="p-5 flex justify-between items-center">
+                        <div>
+                            <p class="font-bold text-slate-800">${r['客戶名稱']}</p>
+                            <p class="text-[10px] text-slate-400 uppercase tracking-tighter">${r['保單號碼']} | ${r['基金標的']}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-black ${res.totalTwd >= 0 ? 'text-emerald-500' : 'text-rose-500'}">$${Math.round(res.totalTwd).toLocaleString()}</p>
+                            <p class="text-[10px] text-slate-400">獲利</p>
+                        </div>
+                    </div>`;
             });
 
-            updateKpiUI(clientKpi);
-            if(!isAll) updateChart(clientKpi);
+            updateKpiUI(k);
+            if(!isAll) updateChart(k);
         }
 
         function updateChart(data) {
             const ctx = document.getElementById('analysisChart').getContext('2d');
             if (myChart) myChart.destroy();
-            
-            // 數據正規化處理以利雷達圖呈現
-            const values = [
-                data.mv / 10000, 
-                data.div / 5000, 
-                data.cost / 10000, 
-                data.month / 100, 
-                Math.max(0, data.total / 1000)
-            ];
-
+            const values = [data.mv/10000, data.div/5000, data.cost/10000, data.month/100, Math.max(0, data.total/1000)];
             myChart = new Chart(ctx, {
                 type: 'radar',
                 data: {
-                    labels: ['資產規模', '累積領息', '原始投入', '月收潛力', '獲利表現'],
+                    labels: ['資產', '領息', '投入', '月收', '獲利'],
                     datasets: [{
-                        label: '能力畫像',
                         data: values,
-                        fill: true,
-                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
-                        borderColor: 'rgb(37, 99, 235)',
-                        pointBackgroundColor: 'rgb(37, 99, 235)',
-                        borderWidth: 2
+                        backgroundColor: 'rgba(99, 102, 241, 0.2)',
+                        borderColor: '#6366f1',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#6366f1'
                     }]
                 },
                 options: {
-                    scales: { r: { ticks: { display: false }, grid: { color: '#f1f5f9' } } },
+                    scales: { r: { ticks: { display: false }, grid: { color: '#f1f5f9' }, pointLabels: { font: { weight: 'bold' } } } },
                     plugins: { legend: { display: false } }
                 }
             });
