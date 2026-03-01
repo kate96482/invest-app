@@ -20,31 +20,31 @@
             <div class="mb-6 flex flex-wrap items-center justify-between bg-white p-4 rounded-lg shadow-sm border border-gray-100 gap-4">
                 <div>
                     <label class="font-bold text-gray-700 mr-2">客戶選擇：</label>
-                    <select id="clientSelector" class="border border-gray-300 p-2 rounded bg-white w-48 focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
+                    <select id="clientSelector" class="border border-gray-300 p-2 rounded bg-white w-48 focus:outline-none"></select>
                 </div>
-                <div class="text-sm font-medium">
-                    <span class="text-blue-600">最新美金匯率基準：<span id="rateDisplay">31.3245</span></span>
+                <div class="text-sm font-medium text-blue-600">
+                    最新美金匯率基準：<span id="rateDisplay">31.3245</span>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
-                <div class="bg-slate-700 text-white p-5 rounded-xl shadow-md text-center">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8 text-center">
+                <div class="bg-slate-700 text-white p-5 rounded-xl shadow-md">
                     <p class="text-xs opacity-80 mb-1">投資型總市值 (TWD)</p>
                     <p id="kpi1" class="text-2xl font-bold">$0</p>
                 </div>
-                <div class="bg-blue-600 text-white p-5 rounded-xl shadow-md text-center">
+                <div class="bg-blue-600 text-white p-5 rounded-xl shadow-md">
                     <p class="text-xs opacity-80 mb-1">本金獲利 (TWD)</p>
                     <p id="kpi2" class="text-2xl font-bold">$0</p>
                 </div>
-                <div class="bg-amber-500 text-white p-5 rounded-xl shadow-md text-center">
+                <div class="bg-amber-500 text-white p-5 rounded-xl shadow-md">
                     <p class="text-xs opacity-80 mb-1">累積配息 (TWD)</p>
                     <p id="kpi3" class="text-2xl font-bold">$0</p>
                 </div>
-                <div class="bg-indigo-600 text-white p-5 rounded-xl shadow-md text-center">
+                <div class="bg-indigo-600 text-white p-5 rounded-xl shadow-md">
                     <p class="text-xs opacity-80 mb-1">每月配息預估 (TWD)</p>
                     <p id="kpi4" class="text-2xl font-bold">$0</p>
                 </div>
-                <div class="bg-rose-600 text-white p-5 rounded-xl shadow-md text-center">
+                <div class="bg-rose-600 text-white p-5 rounded-xl shadow-md">
                     <p class="text-xs opacity-80 mb-1">含息總報酬 (TWD)</p>
                     <p id="kpi5" class="text-2xl font-bold">$0</p>
                 </div>
@@ -55,9 +55,9 @@
                     <thead class="bg-gray-50 text-gray-600 text-sm">
                         <tr>
                             <th class="p-4 border-b">客戶名稱</th>
-                            <th class="p-4 border-b text-right">投資本金(原幣)</th>
+                            <th class="p-4 border-b">幣別</th>
+                            <th class="p-4 border-b text-right">投入本金(原幣)</th>
                             <th class="p-4 border-b text-right">平均匯率</th>
-                            <th class="p-4 border-b text-right">最新匯率</th>
                             <th class="p-4 border-b text-right font-bold">含息總報酬 (TWD)</th>
                         </tr>
                     </thead>
@@ -71,12 +71,14 @@
         let rawData = [];
         let currentUsdRate = 31.3245; 
 
-        const FUND_DATA = {
-            "DSP5": { nav: 8.4495, divPerUnit: 0.05 }, 
+        // 鎖定最新淨值
+        const FUND_PARAMS = {
+            "DSP5": { nav: 8.4495, divPerUnit: 0.048 }, 
             "NGB2": { nav: 41.81, divPerUnit: 0.23 } 
         };
 
-        async function fetchExRate() {
+        // 抓取富邦即時匯率
+        async function fetchFubonRate() {
             try {
                 const url = `https://api.allorigins.win/get?url=${encodeURIComponent('https://www.fubon.com/banking/personal/deposit/exchange_rate/exchange_rate_tw.htm')}`;
                 const res = await fetch(url);
@@ -85,15 +87,15 @@
                 const rows = doc.querySelectorAll('tr');
                 for (let row of rows) {
                     if (row.innerText.includes('美金')) {
-                        const rate = parseFloat(row.querySelectorAll('td')[2].innerText.trim());
-                        if (!isNaN(rate)) {
-                            currentUsdRate = rate;
-                            document.getElementById('rateDisplay').innerText = rate;
+                        const val = parseFloat(row.querySelectorAll('td')[2].innerText.trim());
+                        if (!isNaN(val)) {
+                            currentUsdRate = val;
+                            document.getElementById('rateDisplay').innerText = val;
                             return;
                         }
                     }
                 }
-            } catch (e) { console.warn("匯率更新失敗，維持預設。"); }
+            } catch (e) { console.warn("匯率抓取失敗，採用 31.3245"); }
         }
 
         document.getElementById('upload').addEventListener('change', function(e) {
@@ -103,7 +105,7 @@
                 const data = new Uint8Array(event.target.result);
                 const workbook = XLSX.read(data, {type: 'array'});
                 rawData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-                await fetchExRate();
+                await fetchFubonRate();
                 initDashboard();
             };
             reader.readAsArrayBuffer(file);
@@ -112,7 +114,7 @@
         function initDashboard() {
             document.getElementById('dashboard').classList.remove('hidden');
             const selector = document.getElementById('clientSelector');
-            selector.innerHTML = '<option value="all">全體客戶</option>';
+            selector.innerHTML = '<option value="all">全體客戶總覽</option>';
             const clients = [...new Set(rawData.map(item => item['客戶名稱']))];
             clients.forEach(c => {
                 const opt = document.createElement('option');
@@ -135,38 +137,37 @@
                 const capital = parseFloat(row['投資本金']) || 0;
                 const cumDiv = parseFloat(row['累積配息']) || 0;
                 const avgEx = parseFloat(row['平均匯率']) || 1;
-                const fundTag = row['基金標的'];
-
-                const fund = FUND_DATA[fundTag] || { nav: 0, divPerUnit: 0 };
+                const currency = (row['幣別'] || '').toString().trim();
+                const fundKey = (row['基金標的'] || '').toString().trim();
+                const fund = FUND_PARAMS[fundKey] || { nav: 0, divPerUnit: 0 };
 
                 let totalReturnTwd = 0;
+                let displayDivTwd = 0;
                 const currentMvTwd = units * fund.nav * currentUsdRate;
-                const currentDivTwd = cumDiv * currentUsdRate;
 
-                // --- 核心修正算法 ---
-                if (avgEx === 1) {
-                    // 美元投入：(累積配息(USD) + 累積單位*最新淨值 - 投入本金(USD)) * 最新匯率
-                    const totalProfitUsd = (cumDiv + (units * fund.nav)) - capital;
-                    totalReturnTwd = totalProfitUsd * currentUsdRate;
+                // --- 依照你的最終更正算法 ---
+                if (currency === '美元' || currency === 'USD') {
+                    // 美元保單：(累積配息(USD) + 單位*最新淨值 - 投資本金(USD)) * 最新匯率
+                    displayDivTwd = cumDiv * currentUsdRate;
+                    totalReturnTwd = (cumDiv + (units * fund.nav) - capital) * currentUsdRate;
                 } else {
-                    // 台幣投入：(累積配息(TWD) + 累積單位*最新淨值*最新匯率) - 投入本金(TWD)
-                    // 投入本金(TWD) = 投入本金(原幣) * 平均匯率
-                    const costTwd = capital * avgEx;
-                    totalReturnTwd = (currentDivTwd + currentMvTwd) - costTwd;
+                    // 台幣保單：(累積配息(台幣) + 單位*最新淨值*最新匯率) - 投資本金(台幣)
+                    displayDivTwd = cumDiv;
+                    totalReturnTwd = (cumDiv + currentMvTwd) - capital;
                 }
 
                 kpi.mv += currentMvTwd;
-                kpi.gain += (currentMvTwd - (capital * avgEx));
-                kpi.div += currentDivTwd;
+                kpi.gain += (currentMvTwd + displayDivTwd - (currency === '美元' ? capital * currentUsdRate : capital));
+                kpi.div += displayDivTwd;
                 kpi.monthly += (units * fund.divPerUnit * currentUsdRate);
                 kpi.total += totalReturnTwd;
 
                 tableBody.innerHTML += `
                     <tr>
                         <td class="p-4 border-b font-medium">${row['客戶名稱']}</td>
+                        <td class="p-4 border-b text-gray-500">${currency}</td>
                         <td class="p-4 border-b text-right">${capital.toLocaleString()}</td>
                         <td class="p-4 border-b text-right text-gray-400">${avgEx}</td>
-                        <td class="p-4 border-b text-right text-blue-600 font-bold">${currentUsdRate}</td>
                         <td class="p-4 border-b text-right font-bold ${totalReturnTwd >= 0 ? 'text-green-600' : 'text-red-600'}">
                             $${Math.round(totalReturnTwd).toLocaleString()}
                         </td>
