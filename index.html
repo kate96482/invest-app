@@ -20,7 +20,7 @@
         #renderCanvas {
             position: absolute; left: -9999px; top: 0;
             width: 500px; height: 500px;
-            background: white; padding: 30px;
+            background: white; padding: 40px;
             display: flex; flex-direction: column; justify-content: space-between;
             box-sizing: border-box;
         }
@@ -117,11 +117,11 @@
                         <span id="indivDivTotal" class="text-amber-500 font-black text-lg">$0</span>
                     </div>
                     <div class="h-32 w-full bg-slate-50 rounded-2xl flex items-end p-2 gap-1.5 mb-4">
-                        <div class="flex-1 bg-amber-100 rounded-t-lg" style="height: 20%"></div>
-                        <div class="flex-1 bg-amber-200 rounded-t-lg" style="height: 35%"></div>
-                        <div class="flex-1 bg-amber-300 rounded-t-lg" style="height: 55%"></div>
-                        <div class="flex-1 bg-amber-400 rounded-t-lg" style="height: 75%"></div>
-                        <div class="flex-1 gold-gradient rounded-t-lg shadow-lg shadow-amber-200" style="height: 100%"></div>
+                        <div id="bar1" class="flex-1 bg-amber-100 rounded-t-lg transition-all duration-500" style="height: 10%"></div>
+                        <div id="bar2" class="flex-1 bg-amber-200 rounded-t-lg transition-all duration-500" style="height: 10%"></div>
+                        <div id="bar3" class="flex-1 bg-amber-300 rounded-t-lg transition-all duration-500" style="height: 10%"></div>
+                        <div id="bar4" class="flex-1 bg-amber-400 rounded-t-lg transition-all duration-500" style="height: 10%"></div>
+                        <div id="bar5" class="flex-1 gold-gradient rounded-t-lg shadow-lg shadow-amber-200 transition-all duration-500" style="height: 10%"></div>
                     </div>
                     <div class="p-4 bg-amber-50 rounded-2xl border border-amber-100 text-center mb-4">
                         <p class="text-[11px] text-amber-800 font-bold">
@@ -182,11 +182,11 @@
                 <p id="r-payback" style="margin:0; font-size:20px; font-weight:900; color:#d97706;">0%</p>
             </div>
             <div style="height:70px; width:100%; display:flex; align-items:flex-end; gap:8px; box-sizing:border-box;">
-                <div style="flex:1; background:#fef3c7; border-radius:6px; height:20%;"></div>
-                <div style="flex:1; background:#fde68a; border-radius:6px; height:40%;"></div>
-                <div style="flex:1; background:#fcd34d; border-radius:6px; height:60%;"></div>
-                <div style="flex:1; background:#fbbf24; border-radius:6px; height:80%;"></div>
-                <div style="flex:1; background:linear-gradient(to bottom, #fbbf24, #d97706); border-radius:6px; height:100%; box-shadow: 0 4px 12px rgba(217,119,6,0.2);"></div>
+                <div id="r-bar1" style="flex:1; background:#fef3c7; border-radius:6px; height:20%;"></div>
+                <div id="r-bar2" style="flex:1; background:#fde68a; border-radius:6px; height:40%;"></div>
+                <div id="r-bar3" style="flex:1; background:#fcd34d; border-radius:6px; height:60%;"></div>
+                <div id="r-bar4" style="flex:1; background:#fbbf24; border-radius:6px; height:80%;"></div>
+                <div id="r-bar5" style="flex:1; background:linear-gradient(to bottom, #fbbf24, #d97706); border-radius:6px; height:100%; box-shadow: 0 4px 12px rgba(217,119,6,0.2);"></div>
             </div>
         </div>
         
@@ -284,6 +284,25 @@
             isDetailsVisible = false;
         }
 
+        function updateStepChart(paybackRate) {
+            // 階梯圖高度邏輯：第五階為實際回本率，前面四階依比例遞減
+            const rate = parseFloat(paybackRate);
+            const bars = [
+                {id: 'bar1', r: 'r-bar1'}, {id: 'bar2', r: 'r-bar2'}, 
+                {id: 'bar3', r: 'r-bar3'}, {id: 'bar4', r: 'r-bar4'}, 
+                {id: 'bar5', r: 'r-bar5'}
+            ];
+            
+            bars.forEach((bar, index) => {
+                const stepHeight = Math.max(10, (rate * (index + 1) / 5));
+                const heightStr = Math.min(100, stepHeight) + '%';
+                // 更新網頁顯示的階梯
+                document.getElementById(bar.id).style.height = heightStr;
+                // 更新截圖畫布的階梯
+                document.getElementById(bar.r).style.height = heightStr;
+            });
+        }
+
         function calculateAndDisplayKpi(targetName) {
             const isAll = targetName === 'all';
             const filtered = isAll ? rawData : rawData.filter(d => d['客戶名稱'] === targetName);
@@ -323,7 +342,7 @@
                 retEl.classList.remove('hidden');
                 retEl.innerText = (totalReturnRate >= 0 ? '+' : '') + totalReturnRate.toFixed(2) + '%';
 
-                // 同步更新截圖畫布數據 (移除客戶名稱，增加五個卡片數據)
+                // 同步更新截圖畫布數據
                 document.getElementById('r-kpi1').innerText = '$' + Math.round(k.mv).toLocaleString();
                 document.getElementById('r-kpi2').innerText = '$' + Math.round(k.cap).toLocaleString();
                 document.getElementById('r-kpi3').innerText = '$' + Math.round(k.div).toLocaleString();
@@ -341,6 +360,9 @@
                 document.getElementById('indivDivTotal').innerText = '$' + Math.round(k.div).toLocaleString();
                 document.getElementById('indivPaybackRate').innerText = payback + '%';
                 document.getElementById('r-time').innerText = new Date().toLocaleString();
+
+                // 更新階梯圖高度
+                updateStepChart(payback);
             }
         }
 
@@ -406,14 +428,20 @@
 
                 const imgData = canvas.toDataURL("image/png");
                 const preview = document.createElement('div');
-                preview.className = "fixed inset-0 bg-black/90 z-[10000] flex flex-col items-center justify-center p-6";
+                preview.className = "fixed inset-0 bg-black/90 z-[10000] flex flex-col items-center justify-center p-4";
+                
+                // 強制預覽容器為正方形，解決電腦端跑版問題
                 preview.innerHTML = `
-                    <div style="width:100%; max-w-[380px]; aspect-ratio:1/1; border-radius:24px; overflow:hidden; box-shadow:0 30px 60px rgba(0,0,0,0.5);">
-                        <img src="${imgData}" style="width:100%; height:100%; display:block;">
+                    <div style="width: 90vw; max-width: 450px; position: relative;">
+                        <div style="width: 100%; aspect-ratio: 1/1; border-radius: 20px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
+                            <img src="${imgData}" style="width: 100%; height: 100%; object-fit: contain; background: white;">
+                        </div>
+                        <div class="text-center mt-6">
+                            <p class="text-white font-bold text-lg">1:1 分析圖卡已生成</p>
+                            <p class="text-white/50 text-xs mt-1">請長按圖片儲存，或按下方按鈕關閉</p>
+                            <button onclick="this.parentElement.parentElement.parentElement.remove()" class="mt-8 bg-white text-slate-900 px-12 py-3 rounded-2xl font-black shadow-xl">關閉預覽</button>
+                        </div>
                     </div>
-                    <p class="text-white font-bold mt-8 mb-2">1:1 圖卡已生成</p>
-                    <p class="text-white/50 text-xs mb-8">（無姓名隱私版本）請長按圖片儲存影像</p>
-                    <button onclick="this.parentElement.remove()" class="bg-white text-black px-10 py-3 rounded-full font-bold">關閉預覽</button>
                 `;
                 document.body.appendChild(preview);
             } catch (err) {
