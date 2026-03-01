@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>保單理財小管家</title>
+    <title>保單理財小管家 - 專業診斷版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; }
@@ -14,6 +13,8 @@
         .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
         .kpi-card-main { grid-column: span 2; }
         .soft-shadow { box-shadow: 0 8px 30px rgba(0,0,0,0.04); }
+        .gold-gradient { background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); }
+        .card-shadow { box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); }
     </style>
 </head>
 <body class="pb-10">
@@ -55,24 +56,23 @@
                 </button>
             </div>
 
-            <div class="kpi-grid">
+            <div id="kpiSection" class="kpi-grid">
                 <div class="kpi-card-main bg-slate-900 p-6 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden transition-all duration-500">
                     <div class="relative z-10">
                         <p id="kpiTitle" class="text-xs font-bold opacity-50 mb-1 tracking-widest uppercase">總投資市值</p>
                         <p id="kpi1" class="text-3xl font-black tracking-tight">$0</p>
                     </div>
-                    <div class="absolute -right-4 -bottom-4 text-white/5 text-6xl font-black italic">ASSET</div>
+                    <div class="absolute -right-4 -bottom-4 text-white/5 text-6xl font-black italic uppercase" id="kpiLabelBg">Asset</div>
                 </div>
-
                 <div class="bg-blue-50 p-5 rounded-[2rem] border border-blue-100/50">
-                    <p class="text-[10px] font-bold text-blue-400 uppercase mb-1">本金獲利</p>
+                    <p class="text-[10px] font-bold text-blue-400 uppercase mb-1">價差獲利</p>
                     <p id="kpi2" class="text-lg font-black text-blue-900">$0</p>
                 </div>
                 <div class="bg-amber-50 p-5 rounded-[2rem] border border-amber-100/50">
                     <p class="text-[10px] font-bold text-amber-500 uppercase mb-1">累積配息</p>
                     <p id="kpi3" class="text-lg font-black text-amber-900">$0</p>
                 </div>
-                <div class="bg-indigo-50 p-5 rounded-[2rem] border border-indigo-100/50">
+                <div id="monthlyDivCard" class="bg-indigo-50 p-5 rounded-[2rem] border border-indigo-100/50">
                     <p class="text-[10px] font-bold text-indigo-500 uppercase mb-1">預估月配息</p>
                     <p id="kpi4" class="text-lg font-black text-indigo-900">$0</p>
                 </div>
@@ -89,9 +89,22 @@
                 </div>
                 <select id="clientSelector" class="w-full bg-slate-50 border-0 p-4 rounded-2xl font-bold text-slate-800 mb-6 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"></select>
                 
-                <div id="chartWrapper" class="hidden">
-                    <div class="bg-slate-50 p-4 rounded-[2rem] border border-slate-100">
-                        <canvas id="analysisChart"></canvas>
+                <div id="individualAnalysis" class="hidden space-y-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="font-black text-slate-800 text-sm">長期配息增長趨勢</h3>
+                        <span id="indivDivTotal" class="text-amber-500 font-black text-lg">$0</span>
+                    </div>
+                    <div class="h-32 w-full bg-slate-50 rounded-2xl flex items-end p-2 gap-1.5 mb-4">
+                        <div class="flex-1 bg-amber-100 rounded-t-lg" style="height: 20%"></div>
+                        <div class="flex-1 bg-amber-200 rounded-t-lg" style="height: 35%"></div>
+                        <div class="flex-1 bg-amber-300 rounded-t-lg" style="height: 55%"></div>
+                        <div class="flex-1 bg-amber-400 rounded-t-lg" style="height: 75%"></div>
+                        <div class="flex-1 gold-gradient rounded-t-lg shadow-lg shadow-amber-200" style="height: 100%"></div>
+                    </div>
+                    <div class="p-4 bg-amber-50 rounded-2xl border border-amber-100 text-center">
+                        <p class="text-[11px] text-amber-800 font-bold">
+                            累積回本率已達：<span id="indivPaybackRate" class="text-amber-600 font-black text-base">0%</span>
+                        </p>
                     </div>
                 </div>
             </div>
@@ -109,10 +122,8 @@
     <script>
         let rawData = [];
         let currentUsdRate = 32.50; 
-        let myChart = null;
         let isDetailsVisible = false;
 
-        // 【設定區】請將 Google Sheets 產生的 CSV 連結貼在下方括號內
         const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQHKETau10x9H1XCGiO-nDUdlgB7eMIYMTi25y5-ZYiUECEDnNHN22CxxVvitdmTLUZAHSVBrZCbK2P/pub?gid=0&single=true&output=csv"; 
 
         const FUND_PARAMS = { 
@@ -120,20 +131,14 @@
             "NGB2": { nav: 41.81, divRate: 0.59 } 
         };
 
-        // 從 Google Sheets 同步數據
         async function syncMarketData() {
-            if (!SHEET_CSV_URL) {
-                console.warn("尚未設定 Google Sheets 連結，使用內定數據");
-                return;
-            }
+            if (!SHEET_CSV_URL) return;
             try {
                 const response = await fetch(SHEET_CSV_URL);
                 const text = await response.text();
                 const rows = text.split('\n').map(row => row.split(','));
-                
-                // 假設 CSV 格式為：標籤,數值
                 rows.forEach(r => {
-                    const key = r[0].trim();
+                    const key = (r[0] || '').trim();
                     const val = parseFloat(r[1]);
                     if (key === "DSP5_NAV") FUND_PARAMS["DSP5"].nav = val;
                     if (key === "NGB2_NAV") FUND_PARAMS["NGB2"].nav = val;
@@ -142,7 +147,6 @@
                 document.getElementById('rateDisplay').innerText = currentUsdRate.toFixed(2);
             } catch (e) {
                 console.error("同步失敗:", e);
-                // 失敗則嘗試抓取一般匯率 API 作為備案
                 fetch('https://api.exchangerate-api.com/v4/latest/USD')
                     .then(res => res.json())
                     .then(data => {
@@ -178,7 +182,7 @@
             const mvTwd = units * fund.nav * currentUsdRate;
             const monthDiv = units * fund.divRate * currentUsdRate;
 
-            let totalTwd, divTwd;
+            let divTwd, totalTwd;
             if (currency === '美元' || currency === 'USD') {
                 divTwd = cumDiv * currentUsdRate;
                 totalTwd = (cumDiv + (units * fund.nav) - capital) * currentUsdRate;
@@ -186,7 +190,7 @@
                 divTwd = cumDiv; 
                 totalTwd = (cumDiv + mvTwd) - capital;
             }
-            return { mvTwd, divTwd, totalTwd, monthDiv };
+            return { mvTwd, divTwd, totalTwd, monthDiv, capitalTwd: (currency === '美元' || currency === 'USD') ? capital * currentUsdRate : capital };
         }
 
         function initDashboard() {
@@ -202,11 +206,11 @@
 
         function backToOverall() {
             document.getElementById('clientSelector').value = 'none';
-            // 修正：回到總體時，移除客戶名稱與(全體)字樣
             document.getElementById('kpiTitle').innerText = "總投資市值";
+            document.getElementById('kpiLabelBg').innerText = "Asset";
+            document.getElementById('individualAnalysis').classList.add('hidden');
             calculateAndDisplayKpi('all');
             document.getElementById('tableWrapper').classList.add('hidden');
-            document.getElementById('chartWrapper').classList.add('hidden');
             isDetailsVisible = false;
             const btn = document.getElementById('toggleAllBtn');
             btn.innerText = "展開全體名細";
@@ -215,24 +219,31 @@
 
         function calculateAndDisplayKpi(targetName) {
             const filtered = targetName === 'all' ? rawData : rawData.filter(d => d['客戶名稱'] === targetName);
-            let k = { mv: 0, div: 0, month: 0, total: 0 };
+            let k = { mv: 0, div: 0, month: 0, total: 0, cap: 0 };
             filtered.forEach(r => {
                 const res = calcRow(r);
-                k.mv += res.mvTwd; k.div += res.divTwd; k.month += res.monthDiv; k.total += res.totalTwd;
+                k.mv += res.mvTwd; k.div += res.divTwd; k.month += res.monthDiv; k.total += res.totalTwd; k.cap += res.capitalTwd;
             });
             document.getElementById('kpi1').innerText = '$' + Math.round(k.mv).toLocaleString();
             document.getElementById('kpi2').innerText = '$' + Math.round(k.total - k.div).toLocaleString();
             document.getElementById('kpi3').innerText = '$' + Math.round(k.div).toLocaleString();
             document.getElementById('kpi4').innerText = '$' + Math.round(k.month).toLocaleString();
             document.getElementById('kpi5').innerText = '$' + Math.round(k.total).toLocaleString();
+            
+            // 如果是個別客戶，更新專屬面板數據
+            if(targetName !== 'all') {
+                document.getElementById('indivDivTotal').innerText = '$' + Math.round(k.div).toLocaleString();
+                const paybackRate = k.cap > 0 ? ((k.div / k.cap) * 100).toFixed(2) : 0;
+                document.getElementById('indivPaybackRate').innerText = paybackRate + '%';
+            }
             return k;
         }
 
         document.getElementById('clientSelector').addEventListener('change', e => {
             const name = e.target.value;
             if(name === 'none') { backToOverall(); return; }
-            // 修正：僅在選擇特定客戶時顯示名稱
-            document.getElementById('kpiTitle').innerText = `總投資市值 (${name})`;
+            document.getElementById('kpiTitle').innerText = `預估每月領取現金`;
+            document.getElementById('kpiLabelBg').innerText = "Cash";
             renderDetails(name);
         });
 
@@ -243,15 +254,11 @@
                 this.innerText = "收起全體名細";
                 this.classList.replace('bg-slate-100', 'bg-slate-800');
                 this.classList.add('text-white');
-                // 展開全體時，標題保持簡潔
-                document.getElementById('kpiTitle').innerText = "總投資市值";
             } else {
                 document.getElementById('tableWrapper').classList.add('hidden');
                 this.innerText = "展開全體名細";
                 this.classList.replace('bg-slate-800', 'bg-slate-100');
                 this.classList.remove('text-white');
-                // 收起時標題恢復
-                document.getElementById('kpiTitle').innerText = "總投資市值";
             }
         });
 
@@ -259,9 +266,19 @@
             const isAll = name === 'all';
             const filtered = isAll ? rawData : rawData.filter(d => d['客戶名稱'] === name);
             const tbody = document.getElementById('dataTableBody');
-            const currentStats = calculateAndDisplayKpi(name);
+            
+            // 更新核心 KPI
+            const stats = calculateAndDisplayKpi(name);
+            
+            // 切換分析視圖
+            document.getElementById('individualAnalysis').classList.toggle('hidden', isAll);
             document.getElementById('tableWrapper').classList.remove('hidden');
-            document.getElementById('chartWrapper').classList.toggle('hidden', isAll);
+            
+            // 如果是選擇個別客戶，主 KPI 顯示月領配息，強化視覺效果
+            if(!isAll) {
+                document.getElementById('kpi1').innerText = '$' + Math.round(stats.month).toLocaleString();
+            }
+
             tbody.innerHTML = '';
             filtered.forEach(r => {
                 const res = calcRow(r);
@@ -273,33 +290,9 @@
                         </div>
                         <div class="text-right">
                             <p class="font-black text-sm ${res.totalTwd >= 0 ? 'text-emerald-500' : 'text-rose-500'}">$${Math.round(res.totalTwd).toLocaleString()}</p>
-                            <p class="text-[10px] text-slate-400">預估獲利</p>
+                            <p class="text-[10px] text-slate-400">含息總損益</p>
                         </div>
                     </div>`;
-            });
-            if(!isAll) updateChart(currentStats);
-        }
-
-        function updateChart(data) {
-            const ctx = document.getElementById('analysisChart').getContext('2d');
-            if (myChart) myChart.destroy();
-            const values = [data.mv/10000, data.div/5000, data.total/5000, data.month/100, Math.max(0, data.total/1000)];
-            myChart = new Chart(ctx, {
-                type: 'radar',
-                data: {
-                    labels: ['資產', '領息', '獲利', '月收', '權重'],
-                    datasets: [{
-                        data: values,
-                        backgroundColor: 'rgba(99, 102, 241, 0.2)',
-                        borderColor: '#6366f1',
-                        borderWidth: 2,
-                        pointBackgroundColor: '#6366f1'
-                    }]
-                },
-                options: {
-                    scales: { r: { ticks: { display: false }, grid: { color: '#f1f5f9' }, pointLabels: { font: { weight: 'bold', size: 10 } } } },
-                    plugins: { legend: { display: false } }
-                }
             });
         }
     </script>
