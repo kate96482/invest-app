@@ -3,222 +3,410 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>保單理財小管家 - 專業版</title>
+    <title>保單理財小管家</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
-        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; -webkit-font-smoothing: antialiased; }
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; }
+        #loadingOverlay { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); z-index: 9999; }
         .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
         .kpi-card-main { grid-column: span 2; }
-        .soft-shadow { box-shadow: 0 10px 40px rgba(0,0,0,0.06); }
+        .soft-shadow { box-shadow: 0 8px 30px rgba(0,0,0,0.04); }
         .gold-gradient { background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); }
-        
-        /* 截圖預備樣式：確保截圖時背景與邊距完美 */
-        .export-mode { 
-            padding: 30px !important; 
-            background: white !important; 
-            display: flex !important; 
-            flex-direction: column !important; 
-            justify-content: center !important; 
+
+        /* 1:1 正方形畫布 (隱藏，僅截圖用) */
+        #renderCanvas {
+            position: absolute; left: -9999px; top: 0;
+            width: 500px; height: 500px;
+            background: white; padding: 40px;
+            display: flex; flex-direction: column; justify-content: space-between;
+            box-sizing: border-box;
         }
     </style>
 </head>
 <body class="pb-10">
 
-    <div id="loadingOverlay" class="hidden fixed inset-0 bg-white/80 flex flex-col items-center justify-center z-[9999]">
-        <div class="w-12 h-12 border-4 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
-        <p class="mt-4 text-slate-900 font-black">正在生成專家圖卡...</p>
+    <div id="loadingOverlay" class="hidden fixed inset-0 bg-white/60 flex flex-col items-center justify-center">
+        <div class="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+        <p class="mt-4 text-indigo-600 font-bold">處理中...</p>
     </div>
 
-    <div class="max-w-md mx-auto px-4 py-6">
-        <header class="mb-6 flex justify-between items-end">
+    <div class="max-w-md mx-auto px-4 py-6" id="captureArea">
+        <header id="mainHeader" class="mb-6 flex justify-between items-center">
             <div>
                 <h1 class="text-2xl font-black text-slate-800">資產分析助手</h1>
-                <p id="clientNameDisplay" class="text-indigo-600 font-bold text-sm">請先導入數據</p>
+                <p class="text-slate-400 text-xs">市場數據自動同步已開啟</p>
             </div>
-            <div class="bg-slate-100 px-3 py-1 rounded-lg text-right">
-                <span class="text-[10px] text-slate-400 font-bold block">USD/TWD</span>
-                <span id="rateDisplay" class="text-xs font-black text-slate-700">32.50</span>
+            <div id="headerRate" class="bg-indigo-50 px-3 py-1 rounded-full text-right border border-indigo-100 shadow-sm">
+                <span class="text-[10px] text-indigo-400 font-bold block leading-none">USD/TWD</span>
+                <span id="rateDisplay" class="text-xs font-black text-indigo-600">連線中</span>
             </div>
         </header>
 
         <div id="uploadArea" class="bg-white p-10 rounded-[2.5rem] soft-shadow border-2 border-dashed border-slate-200 text-center mb-6">
-            <div class="text-5xl mb-4">📊</div>
-            <h3 class="font-bold text-slate-700">導入客戶 Excel</h3>
+            <div class="text-5xl mb-4">📥</div>
+            <h3 class="font-bold text-slate-700 text-lg">請導入 Excel 檔案</h3>
+            <p class="text-slate-400 text-sm mb-8">開始您的專業分析</p>
             <input type="file" id="upload" accept=".xlsx, .xls" class="hidden"/>
-            <button onclick="document.getElementById('upload').click()" class="mt-6 bg-slate-900 text-white px-8 py-3 rounded-xl font-bold">選擇檔案</button>
+            <button onclick="document.getElementById('upload').click()" class="bg-slate-900 text-white w-full py-4 rounded-2xl font-bold shadow-xl active:scale-95 transition-transform">選擇檔案</button>
         </div>
 
         <div id="dashboard" class="hidden space-y-4">
-            <div class="bg-white p-4 rounded-3xl soft-shadow mb-4">
-                <select id="clientSelector" class="w-full bg-slate-50 border-0 p-3 rounded-xl font-bold text-slate-800 outline-none"></select>
+            <div id="navButtons" class="flex justify-between items-center">
+                <button onclick="backToOverall()" class="text-xs font-bold text-indigo-600 bg-indigo-50 px-4 py-2 rounded-full flex items-center gap-1 hover:bg-indigo-600 hover:text-white transition-all shadow-sm">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 15l-3-3m0 0l3-3m-3 3h8M3 12a9 9 0 1118 0 9 9 0 01-18 0z"></path></svg>
+                    回到總體分析
+                </button>
+                <button onclick="location.reload()" class="text-xs font-bold text-slate-400 flex items-center gap-1 hover:text-rose-500 transition-colors">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    重新上傳
+                </button>
             </div>
 
-            <div id="exportTarget" class="space-y-4 bg-white rounded-[2rem]">
-                <div id="kpiSection" class="kpi-grid">
-                    <div class="kpi-card-main bg-slate-900 p-6 rounded-[2rem] text-white relative overflow-hidden">
-                        <p class="text-[10px] font-bold opacity-50 tracking-widest uppercase">總投資市值 (TWD)</p>
-                        <p id="kpi1" class="text-3xl font-black mt-1">$0</p>
-                        <div class="absolute -right-2 -bottom-2 text-white/5 text-5xl font-black italic">ASSET</div>
+            <div id="kpiSection" class="kpi-grid">
+                <div class="kpi-card-main bg-slate-900 p-6 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden transition-all duration-500">
+                    <div class="relative z-10">
+                        <p id="kpiTitle" class="text-xs font-bold opacity-50 mb-1 tracking-widest uppercase">總投資市值</p>
+                        <p id="kpi1" class="text-3xl font-black tracking-tight">$0</p>
                     </div>
-                    <div class="bg-slate-50 p-4 rounded-[1.5rem] border border-slate-100 relative">
-                        <p class="text-[10px] font-bold text-slate-400">投入本金</p>
-                        <p id="kpi2" class="text-lg font-black text-slate-800">$0</p>
-                        <span id="marketFluctPercent" class="absolute top-4 right-4 text-[9px] font-black px-1.5 py-0.5 rounded-md"></span>
-                    </div>
-                    <div class="bg-amber-50 p-4 rounded-[1.5rem] border border-amber-100">
-                        <p class="text-[10px] font-bold text-amber-600">累積配息</p>
-                        <p id="kpi3" class="text-lg font-black text-amber-900">$0</p>
-                    </div>
-                    <div class="bg-indigo-50 p-4 rounded-[1.5rem] border border-indigo-100">
-                        <p class="text-[10px] font-bold text-indigo-600">預估月配息</p>
-                        <p id="kpi4" class="text-lg font-black text-indigo-900">$0</p>
-                    </div>
-                    <div class="bg-emerald-50 p-4 rounded-[1.5rem] border border-emerald-100">
-                        <p class="text-[10px] font-bold text-emerald-600">含息總報酬</p>
-                        <p id="kpi5" class="text-lg font-black text-emerald-900">$0</p>
-                    </div>
+                    <div class="absolute -right-4 -bottom-4 text-white/5 text-6xl font-black italic uppercase" id="kpiLabelBg">Asset</div>
                 </div>
 
-                <div class="p-5 bg-white rounded-[2rem] border border-slate-100">
-                    <div class="flex justify-between items-end mb-4">
-                        <div>
-                            <h4 class="font-black text-slate-800 text-sm">長期配息增長趨勢</h4>
-                            <p class="text-[10px] text-slate-400">累積回本率：<span id="indivPaybackRate" class="text-amber-600 font-black">0%</span></p>
-                        </div>
-                        <span id="indivDivTotal" class="text-amber-500 font-black text-xl">$0</span>
+                <div class="bg-blue-50 p-5 rounded-[2rem] border border-blue-100/50 relative">
+                    <div class="flex justify-between items-start">
+                        <p class="text-[10px] font-bold text-blue-400 uppercase mb-1">投入本金</p>
+                        <span id="marketFluctPercent" class="absolute top-4 right-4 text-[9px] font-black leading-none px-1.5 py-0.5 rounded-md hidden"></span>
                     </div>
-                    <div class="h-24 w-full flex items-end gap-2 px-2">
+                    <p id="kpi2" class="text-lg font-black text-blue-900">$0</p>
+                </div>
+
+                <div class="bg-amber-50 p-5 rounded-[2rem] border border-amber-100/50">
+                    <p class="text-[10px] font-bold text-amber-500 uppercase mb-1">累積配息</p>
+                    <p id="kpi3" class="text-lg font-black text-amber-900">$0</p>
+                </div>
+
+                <div id="monthlyDivCard" class="bg-indigo-50 p-5 rounded-[2rem] border border-indigo-100/50">
+                    <div class="flex justify-between items-start mb-1">
+                        <p class="text-[10px] font-bold text-indigo-500 uppercase">預估月配息</p>
+                        <span id="annualDivYield" class="hidden text-[9px] font-black bg-indigo-100/50 px-1.5 py-0.5 rounded-md"></span>
+                    </div>
+                    <p id="kpi4" class="text-lg font-black text-indigo-900">$0</p>
+                </div>
+
+                <div class="bg-emerald-50 p-5 rounded-[2rem] border border-emerald-100/50">
+                    <div class="flex justify-between items-center mb-1">
+                        <p class="text-[10px] font-bold text-emerald-600 uppercase">含息總報酬</p>
+                        <span id="totalReturnRate" class="hidden text-[10px] font-black text-emerald-700"></span>
+                    </div>
+                    <p id="kpi5" class="text-lg font-black text-emerald-900">$0</p>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-[2.5rem] soft-shadow" id="analysisBox">
+                <div id="selectorArea" class="flex items-center justify-between mb-4">
+                    <label class="text-sm font-black text-slate-700">選擇分析對象</label>
+                    <button id="toggleAllBtn" class="text-xs bg-slate-100 px-3 py-1.5 rounded-full font-bold text-slate-500 hover:bg-slate-800 hover:text-white transition-all">展開全體名細</button>
+                </div>
+                <select id="clientSelector" class="w-full bg-slate-50 border-0 p-4 rounded-2xl font-bold text-slate-800 mb-6 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"></select>
+                
+                <div id="individualAnalysis" class="hidden space-y-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="font-black text-slate-800 text-sm">長期配息增長趨勢</h3>
+                        <span id="indivDivTotal" class="text-amber-500 font-black text-lg">$0</span>
+                    </div>
+                    <div class="h-32 w-full bg-slate-50 rounded-2xl flex items-end p-2 gap-1.5 mb-4">
                         <div class="flex-1 bg-amber-100 rounded-t-lg" style="height: 20%"></div>
                         <div class="flex-1 bg-amber-200 rounded-t-lg" style="height: 35%"></div>
                         <div class="flex-1 bg-amber-300 rounded-t-lg" style="height: 55%"></div>
                         <div class="flex-1 bg-amber-400 rounded-t-lg" style="height: 75%"></div>
-                        <div class="flex-1 gold-gradient rounded-t-lg shadow-lg" style="height: 100%"></div>
+                        <div class="flex-1 gold-gradient rounded-t-lg shadow-lg shadow-amber-200" style="height: 100%"></div>
                     </div>
+                    <div class="p-4 bg-amber-50 rounded-2xl border border-amber-100 text-center mb-4">
+                        <p class="text-[11px] text-amber-800 font-bold">
+                            累積回本率已達：<span id="indivPaybackRate" class="text-amber-600 font-black text-base">0%</span>
+                        </p>
+                    </div>
+                    <button id="exportImgBtn" class="w-full py-3 bg-slate-800 text-white rounded-xl text-xs font-bold shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        生成 1:1 正方形圖卡
+                    </button>
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-3 pt-4">
-                <button id="exportImgBtn" class="bg-indigo-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-indigo-100 active:scale-95 transition-all">
-                    生成 1:1 分享圖卡
-                </button>
-                <button onclick="location.reload()" class="bg-slate-200 text-slate-600 py-4 rounded-2xl font-bold">
-                    重新上傳
-                </button>
+            <div id="tableWrapper" class="hidden bg-white rounded-[2.5rem] soft-shadow overflow-hidden">
+                <div class="p-5 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+                    <span class="font-black text-slate-700 text-sm">數據名細表</span>
+                    <span class="text-[10px] font-bold text-slate-400">單位：TWD (Live數據)</span>
+                </div>
+                <div id="dataTableBody" class="divide-y divide-slate-50"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="renderCanvas">
+        <div style="text-align: center;">
+            <h2 id="renderName" style="margin:0; font-size:28px; font-weight:900; color:#1e293b;">客戶名稱</h2>
+            <p style="margin:4px 0 0 0; font-size:12px; color:#94a3b8; font-weight:500;">資產分析助手 · 市場數據同步</p>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+            <div style="grid-column: span 2; background:#0f172a; padding:25px; border-radius:30px; color:white;">
+                <p style="margin:0; font-size:12px; opacity:0.6; font-weight:700;">總投資市值 (TWD)</p>
+                <p id="r-kpi1" style="margin:8px 0 0 0; font-size:42px; font-weight:900;">$0</p>
+            </div>
+            <div style="background:#eff6ff; padding:20px; border-radius:25px; position:relative; border:1px solid #dbeafe;">
+                <p style="margin:0; font-size:11px; color:#3b82f6; font-weight:800;">投入本金</p>
+                <p id="r-kpi2" style="margin:5px 0 0 0; font-size:20px; font-weight:900; color:#1e3a8a;">$0</p>
+                <span id="r-fluct" style="position:absolute; top:18px; right:18px; font-size:10px; font-weight:900; padding:2px 6px; border-radius:6px;"></span>
+            </div>
+            <div style="background:#fffbeb; padding:20px; border-radius:25px; border:1px solid #fef3c7;">
+                <p style="margin:0; font-size:11px; color:#f59e0b; font-weight:800;">累積配息</p>
+                <p id="r-kpi3" style="margin:5px 0 0 0; font-size:20px; font-weight:900; color:#78350f;">$0</p>
+            </div>
+        </div>
+
+        <div>
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:12px;">
+                <p style="margin:0; font-size:14px; font-weight:900; color:#1e293b;">配息回本趨勢</p>
+                <p id="r-payback" style="margin:0; font-size:24px; font-weight:900; color:#d97706;">0%</p>
+            </div>
+            <div style="height:80px; width:100%; background:#f8fafc; border-radius:20px; display:flex; align-items:flex-end; padding:8px; gap:8px; box-sizing:border-box; border:1px solid #f1f5f9;">
+                <div style="flex:1; background:#fef3c7; border-radius:8px; height:20%;"></div>
+                <div style="flex:1; background:#fde68a; border-radius:8px; height:40%;"></div>
+                <div style="flex:1; background:#fcd34d; border-radius:8px; height:60%;"></div>
+                <div style="flex:1; background:#fbbf24; border-radius:8px; height:80%;"></div>
+                <div style="flex:1; background:linear-gradient(to bottom, #fbbf24, #d97706); border-radius:8px; height:100%;"></div>
             </div>
         </div>
     </div>
 
     <script>
         let rawData = [];
-        let currentUsdRate = 32.50;
-        const FUND_PARAMS = { "DSP5": { nav: 8.4495, divRate: 0.055 }, "NGB2": { nav: 41.81, divRate: 0.59 } };
+        let currentUsdRate = 32.50; 
+        let isDetailsVisible = false;
+
+        const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQHKETau10x9H1XCGiO-nDUdlgB7eMIYMTi25y5-ZYiUECEDnNHN22CxxVvitdmTLUZAHSVBrZCbK2P/pub?gid=0&single=true&output=csv"; 
+
+        const FUND_PARAMS = { 
+            "DSP5": { nav: 8.4495, divRate: 0.055 }, 
+            "NGB2": { nav: 41.81, divRate: 0.59 } 
+        };
+
+        async function syncMarketData() {
+            if (!SHEET_CSV_URL) return;
+            try {
+                const response = await fetch(SHEET_CSV_URL);
+                const text = await response.text();
+                const rows = text.split('\n').map(row => row.split(','));
+                rows.forEach(r => {
+                    const key = (r[0] || '').trim();
+                    const val = parseFloat(r[1]);
+                    if (key === "DSP5_NAV") FUND_PARAMS["DSP5"].nav = val;
+                    if (key === "NGB2_NAV") FUND_PARAMS["NGB2"].nav = val;
+                    if (key === "USD_TWD") currentUsdRate = val;
+                });
+                document.getElementById('rateDisplay').innerText = currentUsdRate.toFixed(2);
+            } catch (e) {
+                console.error("同步失敗:", e);
+            }
+        }
 
         document.getElementById('upload').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
+            document.getElementById('loadingOverlay').classList.remove('hidden');
             const reader = new FileReader();
             reader.onload = function(event) {
                 const workbook = XLSX.read(new Uint8Array(event.target.result), {type: 'array'});
                 rawData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-                initDashboard();
+                syncMarketData().then(() => {
+                    initDashboard();
+                    setTimeout(() => document.getElementById('loadingOverlay').classList.add('hidden'), 500);
+                });
             };
             reader.readAsArrayBuffer(file);
         });
+
+        function calcRow(row) {
+            const units = parseFloat(row['累積單位數']) || 0;
+            const capital = parseFloat(row['投資本金']) || 0;
+            const cumDiv = parseFloat(row['累積配息']) || 0;
+            const currency = (row['幣別'] || '').toString().trim();
+            const fund = FUND_PARAMS[row['基金標的']] || { nav: 0, divRate: 0 };
+            
+            const mvTwd = units * fund.nav * currentUsdRate;
+            const monthDiv = units * fund.divRate * currentUsdRate;
+
+            let divTwd, totalTwd, capitalTwd;
+            if (currency === '美元' || currency === 'USD') {
+                divTwd = cumDiv * currentUsdRate;
+                capitalTwd = capital * currentUsdRate;
+                totalTwd = (cumDiv + (units * fund.nav) - capital) * currentUsdRate;
+            } else {
+                divTwd = cumDiv; 
+                capitalTwd = capital;
+                totalTwd = (cumDiv + mvTwd) - capital;
+            }
+            return { mvTwd, divTwd, totalTwd, monthDiv, capitalTwd };
+        }
 
         function initDashboard() {
             document.getElementById('dashboard').classList.remove('hidden');
             document.getElementById('uploadArea').classList.add('hidden');
             const selector = document.getElementById('clientSelector');
-            const clients = [...new Set(rawData.map(i => i['客戶名稱']))];
-            selector.innerHTML = clients.map(c => `<option value="${c}">${c}</option>`).join('');
-            updateUI(clients[0]);
-            selector.addEventListener('change', (e) => updateUI(e.target.value));
+            selector.innerHTML = '<option value="none">--- 請選擇客戶 ---</option>';
+            [...new Set(rawData.map(i => i['客戶名稱']))].forEach(c => {
+                const opt = document.createElement('option'); opt.value = c; opt.innerText = c; selector.appendChild(opt);
+            });
+            backToOverall();
         }
 
-        function updateUI(name) {
-            document.getElementById('clientNameDisplay').innerText = `客戶：${name}`;
-            const filtered = rawData.filter(d => d['客戶名稱'] === name);
-            let k = { mv: 0, div: 0, month: 0, total: 0, cap: 0 };
-            
-            filtered.forEach(row => {
-                const units = parseFloat(row['累積單位數']) || 0;
-                const capital = parseFloat(row['投資本金']) || 0;
-                const cumDiv = parseFloat(row['累積配息']) || 0;
-                const fund = FUND_PARAMS[row['基金標的']] || { nav: 0, divRate: 0 };
-                
-                const mvTwd = units * fund.nav * currentUsdRate;
-                k.mv += mvTwd;
-                k.div += (row['幣別'] === '美元' ? cumDiv * currentUsdRate : cumDiv);
-                k.cap += (row['幣別'] === '美元' ? capital * currentUsdRate : capital);
-                k.month += (units * fund.divRate * currentUsdRate);
-            });
-            k.total = (k.mv + k.div) - k.cap;
+        function backToOverall() {
+            document.getElementById('clientSelector').value = 'none';
+            document.getElementById('individualAnalysis').classList.add('hidden');
+            calculateAndDisplayKpi('all');
+            document.getElementById('tableWrapper').classList.add('hidden');
+            isDetailsVisible = false;
+        }
 
-            // 更新 DOM
+        function calculateAndDisplayKpi(targetName) {
+            const isAll = targetName === 'all';
+            const filtered = isAll ? rawData : rawData.filter(d => d['客戶名稱'] === targetName);
+            let k = { mv: 0, div: 0, month: 0, total: 0, cap: 0 };
+            filtered.forEach(r => {
+                const res = calcRow(r);
+                k.mv += res.mvTwd; k.div += res.divTwd; k.month += res.monthDiv; k.total += res.totalTwd; k.cap += res.capitalTwd;
+            });
+
+            const fluctAmt = k.mv - k.cap;
+            const fluctPct = k.cap > 0 ? (fluctAmt / k.cap) * 100 : 0;
+            const totalReturnRate = k.cap > 0 ? (((k.div + k.mv) / k.cap) - 1) * 100 : 0;
+            const annualYield = k.mv > 0 ? (k.month * 12 / k.mv) * 100 : 0;
+
             document.getElementById('kpi1').innerText = '$' + Math.round(k.mv).toLocaleString();
             document.getElementById('kpi2').innerText = '$' + Math.round(k.cap).toLocaleString();
             document.getElementById('kpi3').innerText = '$' + Math.round(k.div).toLocaleString();
             document.getElementById('kpi4').innerText = '$' + Math.round(k.month).toLocaleString();
             document.getElementById('kpi5').innerText = '$' + Math.round(k.total).toLocaleString();
             
-            const fluctPct = ((k.mv - k.cap) / k.cap * 100).toFixed(2);
             const pctEl = document.getElementById('marketFluctPercent');
-            pctEl.innerText = (fluctPct >= 0 ? '+' : '') + fluctPct + '%';
-            pctEl.className = `absolute top-4 right-4 text-[9px] font-black px-1.5 py-0.5 rounded-md ${fluctPct >= 0 ? 'text-emerald-600 bg-emerald-100' : 'text-rose-600 bg-rose-100'}`;
-            
-            document.getElementById('indivDivTotal').innerText = '$' + Math.round(k.div).toLocaleString();
-            document.getElementById('indivPaybackRate').innerText = (k.div / k.cap * 100).toFixed(2) + '%';
+            const yieldEl = document.getElementById('annualDivYield');
+            const retEl = document.getElementById('totalReturnRate');
+
+            if(isAll) {
+                pctEl.classList.add('hidden');
+                yieldEl.classList.add('hidden');
+                retEl.classList.add('hidden');
+            } else {
+                pctEl.classList.remove('hidden');
+                pctEl.innerText = (fluctPct >= 0 ? '+' : '') + fluctPct.toFixed(2) + '%';
+                pctEl.className = `absolute top-4 right-4 text-[9px] font-black px-1.5 py-0.5 rounded-md ${fluctPct >= 0 ? 'text-emerald-600 bg-emerald-100/50' : 'text-rose-600 bg-rose-100/50'}`;
+                
+                yieldEl.classList.remove('hidden');
+                yieldEl.innerText = '年化配息率 ' + annualYield.toFixed(2) + '%';
+
+                retEl.classList.remove('hidden');
+                retEl.innerText = (totalReturnRate >= 0 ? '+' : '') + totalReturnRate.toFixed(2) + '%';
+
+                // 同步更新截圖畫布數據
+                document.getElementById('renderName').innerText = targetName;
+                document.getElementById('r-kpi1').innerText = '$' + Math.round(k.mv).toLocaleString();
+                document.getElementById('r-kpi2').innerText = '$' + Math.round(k.cap).toLocaleString();
+                document.getElementById('r-kpi3').innerText = '$' + Math.round(k.div).toLocaleString();
+                const payback = k.cap > 0 ? ((k.div / k.cap) * 100).toFixed(2) : 0;
+                document.getElementById('r-payback').innerText = payback + '%';
+                
+                const rFluct = document.getElementById('r-fluct');
+                rFluct.innerText = (fluctPct >= 0 ? '+' : '') + fluctPct.toFixed(2) + '%';
+                rFluct.style.background = fluctPct >= 0 ? '#d1fae5' : '#fee2e2';
+                rFluct.style.color = fluctPct >= 0 ? '#059669' : '#dc2626';
+
+                document.getElementById('indivDivTotal').innerText = '$' + Math.round(k.div).toLocaleString();
+                document.getElementById('indivPaybackRate').innerText = payback + '%';
+            }
         }
 
-        // 🟢 截圖核心修正
-        document.getElementById('exportImgBtn').addEventListener('click', async function() {
-            const target = document.getElementById('exportTarget');
-            const overlay = document.getElementById('loadingOverlay');
-            overlay.classList.remove('hidden');
+        document.getElementById('clientSelector').addEventListener('change', e => {
+            const name = e.target.value;
+            if(name === 'none') { backToOverall(); return; }
+            renderDetails(name);
+        });
 
-            // 暫時套用截圖專用樣式 (1:1 強制與美化)
-            target.classList.add('export-mode');
-            target.style.width = "500px"; 
-            target.style.height = "500px";
-
-            try {
-                const canvas = await html2canvas(target, {
-                    scale: 3, // 高清輸出
-                    useCORS: true,
-                    backgroundColor: "#ffffff",
-                    width: 500,
-                    height: 500
-                });
-
-                const imgData = canvas.toDataURL("image/png");
-                showPreview(imgData);
-            } catch (err) {
-                alert("生成失敗");
-            } finally {
-                // 還原樣式
-                target.classList.remove('export-mode');
-                target.style.width = "";
-                target.style.height = "";
-                overlay.classList.add('hidden');
+        document.getElementById('toggleAllBtn').addEventListener('click', function() {
+            isDetailsVisible = !isDetailsVisible;
+            if (isDetailsVisible) {
+                renderDetails('all');
+                this.innerText = "收起全體名細";
+                this.classList.replace('bg-slate-100', 'bg-slate-800');
+                this.classList.add('text-white');
+            } else {
+                document.getElementById('tableWrapper').classList.add('hidden');
+                this.innerText = "展開全體名細";
+                this.classList.replace('bg-slate-800', 'bg-slate-100');
+                this.classList.remove('text-white');
             }
         });
 
-        function showPreview(src) {
-            const div = document.createElement('div');
-            div.className = "fixed inset-0 bg-black/90 z-[10000] flex flex-col items-center justify-center p-6";
-            div.innerHTML = `
-                <div class="w-full max-w-[360px] aspect-square rounded-3xl overflow-hidden shadow-2xl border-4 border-white/20">
-                    <img src="${src}" class="w-full h-full object-cover">
-                </div>
-                <p class="text-white font-black mt-8">✨ 專家分析圖卡已就緒</p>
-                <p class="text-white/40 text-xs mt-2 mb-8">長按圖片即可儲存至相簿</p>
-                <button onclick="this.parentElement.remove()" class="bg-white text-black px-12 py-3 rounded-full font-black">返回修改</button>
-            `;
-            document.body.appendChild(div);
+        function renderDetails(name) {
+            const isAll = name === 'all';
+            const filtered = isAll ? rawData : rawData.filter(d => d['客戶名稱'] === name);
+            const tbody = document.getElementById('dataTableBody');
+            calculateAndDisplayKpi(name);
+            document.getElementById('individualAnalysis').classList.toggle('hidden', isAll);
+            document.getElementById('tableWrapper').classList.remove('hidden');
+            tbody.innerHTML = '';
+            filtered.forEach(r => {
+                const res = calcRow(r);
+                tbody.innerHTML += `
+                    <div class="p-5 flex justify-between items-center hover:bg-slate-50 transition-colors">
+                        <div>
+                            <p class="font-bold text-slate-800 text-sm">${r['客戶名稱']}</p>
+                            <p class="text-[10px] text-slate-400 uppercase tracking-tighter">${r['保單號碼']} | ${r['基金標的']}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-black text-sm ${res.totalTwd >= 0 ? 'text-emerald-500' : 'text-rose-500'}">$${Math.round(res.totalTwd).toLocaleString()}</p>
+                            <p class="text-[10px] text-slate-400">含息總損益</p>
+                        </div>
+                    </div>`;
+            });
         }
+
+        // 截圖邏輯
+        document.getElementById('exportImgBtn').addEventListener('click', async function() {
+            const overlay = document.getElementById('loadingOverlay');
+            overlay.classList.remove('hidden');
+
+            try {
+                const canvas = await html2canvas(document.getElementById('renderCanvas'), {
+                    scale: 3,
+                    width: 500,
+                    height: 500,
+                    backgroundColor: "#ffffff",
+                    logging: false,
+                    useCORS: true
+                });
+
+                const imgData = canvas.toDataURL("image/png");
+                const preview = document.createElement('div');
+                preview.className = "fixed inset-0 bg-black/90 z-[10000] flex flex-col items-center justify-center p-6";
+                preview.innerHTML = `
+                    <div style="width:100%; max-w-[380px]; aspect-ratio:1/1; border-radius:24px; overflow:hidden; box-shadow:0 30px 60px rgba(0,0,0,0.5);">
+                        <img src="${imgData}" style="width:100%; height:100%; display:block;">
+                    </div>
+                    <p class="text-white font-bold mt-8 mb-2">1:1 圖卡已生成</p>
+                    <p class="text-white/50 text-xs mb-8">請長按圖片儲存影像</p>
+                    <button onclick="this.parentElement.remove()" class="bg-white text-black px-10 py-3 rounded-full font-bold">關閉預覽</button>
+                `;
+                document.body.appendChild(preview);
+            } catch (err) {
+                console.error(err);
+                alert("圖片生成失敗");
+            } finally {
+                overlay.classList.add('hidden');
+            }
+        });
     </script>
 </body>
 </html>
