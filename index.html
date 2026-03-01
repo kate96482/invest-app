@@ -8,96 +8,99 @@
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
         body { font-family: 'Inter', -apple-system, sans-serif; }
-        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
-        .kpi-card { transition: transform 0.2s ease; }
-        .kpi-card:hover { transform: translateY(-3px); }
+        
+        /* 讀取動畫旋轉效果 */
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .animate-spin-slow { animation: spin 2s linear infinite; }
+
+        /* 手機端 2x2 矩陣微調 */
+        @media (max-width: 640px) {
+            .mobile-grid { grid-template-columns: repeat(2, 1fr); }
+            .mobile-span-2 { grid-column: span 2; }
+        }
+
+        /* 毛玻璃讀取遮罩 */
+        #loadingOverlay {
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 9999;
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 antialiased pb-10">
 
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        
-        <header class="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
-            <h1 class="text-2xl font-black tracking-tight text-slate-800">投資型保單統計 <span class="text-blue-600">PRO</span></h1>
-            <div id="rateInfo" class="hidden text-sm font-semibold bg-white px-4 py-2 rounded-2xl shadow-sm border border-slate-100 text-blue-700">
-                USD/TWD 基準：<span id="rateDisplay">--</span>
+    <div id="loadingOverlay" class="hidden fixed inset-0 bg-white/70 flex flex-col items-center justify-center">
+        <div class="relative">
+            <div class="w-16 h-16 border-4 border-blue-100 rounded-full"></div>
+            <div class="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
+        </div>
+        <p class="mt-4 text-blue-600 font-bold tracking-widest animate-pulse">正在精確分析數據...</p>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 py-6">
+        <header class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-black tracking-tighter text-slate-800">投資統計 <span class="text-blue-600">PRO</span></h1>
+            <div id="rateInfo" class="text-xs font-bold bg-white px-3 py-1.5 rounded-full shadow-sm border border-slate-200 text-blue-600">
+                USD/TWD：<span id="rateDisplay">載入中...</span>
             </div>
         </header>
 
-        <div id="uploadArea" class="bg-white p-8 sm:p-16 rounded-3xl shadow-xl shadow-slate-200 border-2 border-dashed border-slate-300 text-center mb-8 transition-all">
-            <div class="bg-blue-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg class="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+        <div id="uploadArea" class="bg-white p-10 rounded-[2.5rem] shadow-xl shadow-slate-200 border-2 border-dashed border-slate-300 text-center mb-8">
+            <div class="bg-blue-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
             </div>
-            <h3 class="text-xl font-bold mb-2">上傳分析數據</h3>
-            <p class="text-slate-500 mb-8 max-w-md mx-auto">支援 .xlsx 與 .xls 格式，系統將自動計算含息總報酬與匯差分析。</p>
-            <input type="file" id="upload" accept=".xlsx, .xls" class="block w-full text-sm text-slate-500 file:mr-4 file:py-3 file:px-8 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"/>
+            <h3 class="text-lg font-bold mb-4">上傳保單資料 (Excel)</h3>
+            <p class="text-slate-400 text-sm mb-6">支援林姿緩、張玉霞等客戶保單分析</p>
+            <input type="file" id="upload" accept=".xlsx, .xls" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-slate-900 file:text-white cursor-pointer"/>
         </div>
 
-        <div id="dashboard" class="hidden space-y-8">
-            
-            <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-6">
-                <div class="kpi-card glass p-5 rounded-2xl shadow-sm border border-slate-200">
-                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">總市值 (TWD)</p>
-                    <p id="kpi1" class="text-lg sm:text-2xl font-black text-slate-800">$0</p>
+        <div id="dashboard" class="hidden space-y-6">
+            <div class="grid gap-3 sm:gap-6 mobile-grid lg:grid-cols-5">
+                <div class="mobile-span-2 bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col justify-center">
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">總投資市值 (TWD)</p>
+                    <p id="kpi1" class="text-3xl font-black text-slate-900 tracking-tighter">$0</p>
                 </div>
-                <div class="kpi-card bg-blue-600 p-5 rounded-2xl shadow-lg shadow-blue-100 text-white">
-                    <p class="text-xs font-bold opacity-80 uppercase tracking-wider mb-2">本金獲利</p>
-                    <p id="kpi2" class="text-lg sm:text-2xl font-black">$0</p>
+                <div class="bg-blue-600 p-5 rounded-[2rem] shadow-lg shadow-blue-100 text-white">
+                    <p class="text-[10px] font-bold opacity-80 uppercase mb-1">本金獲利</p>
+                    <p id="kpi2" class="text-xl font-black">$0</p>
                 </div>
-                <div class="kpi-card glass p-5 rounded-2xl shadow-sm border border-slate-200">
-                    <p class="text-xs font-bold text-amber-500 uppercase tracking-wider mb-2">累積配息</p>
-                    <p id="kpi3" class="text-lg sm:text-2xl font-black text-slate-800">$0</p>
+                <div class="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100">
+                    <p class="text-[10px] font-bold text-amber-500 uppercase mb-1">累積配息</p>
+                    <p id="kpi3" class="text-xl font-black text-slate-800">$0</p>
                 </div>
-                <div class="kpi-card glass p-5 rounded-2xl shadow-sm border border-slate-200">
-                    <p class="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-2">月息預估</p>
-                    <p id="kpi4" class="text-lg sm:text-2xl font-black text-slate-800">$0</p>
+                <div class="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100">
+                    <p class="text-[10px] font-bold text-indigo-600 uppercase mb-1">預估月配息</p>
+                    <p id="kpi4" class="text-xl font-black text-slate-800">$0</p>
                 </div>
-                <div class="kpi-card bg-emerald-600 p-5 rounded-2xl shadow-lg shadow-emerald-100 text-white col-span-2 lg:col-span-1">
-                    <p class="text-xs font-bold opacity-80 uppercase tracking-wider mb-2">含息總報酬</p>
-                    <p id="kpi5" class="text-lg sm:text-2xl font-black">$0</p>
+                <div class="bg-emerald-600 p-5 rounded-[2rem] shadow-lg shadow-emerald-100 text-white">
+                    <p class="text-[10px] font-bold opacity-80 uppercase mb-1">含息總報酬</p>
+                    <p id="kpi5" class="text-xl font-black">$0</p>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                
-                <div class="space-y-6">
-                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
-                        <label class="block text-sm font-bold text-slate-700 mb-4">切換分析對象</label>
-                        <select id="clientSelector" class="w-full bg-slate-50 border-0 p-4 rounded-2xl text-slate-800 font-semibold focus:ring-2 focus:ring-blue-500 outline-none mb-4 transition-all"></select>
-                        <div class="flex flex-col gap-2">
-                            <button id="toggleAllBtn" class="w-full py-3 text-sm font-bold text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition">查看全體明細清單</button>
-                            <button id="resetBtn" class="w-full py-3 text-sm font-bold text-slate-400 hover:text-rose-500 transition">清空並重新上傳</button>
-                        </div>
-                    </div>
-
-                    <div id="chartCard" class="hidden bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
-                        <h4 class="font-bold text-slate-700 mb-4">獲利結構分析</h4>
-                        <div class="h-64">
-                            <canvas id="clientChart"></canvas>
-                        </div>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="space-y-4">
+                    <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
+                        <label class="block text-xs font-bold text-slate-400 mb-2 uppercase">分析對象</label>
+                        <select id="clientSelector" class="w-full bg-slate-50 border-0 p-4 rounded-2xl text-slate-800 font-bold outline-none mb-3"></select>
+                        <button id="toggleAllBtn" class="w-full py-3.5 text-sm font-bold text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition">顯示所有客戶清單</button>
                     </div>
                 </div>
 
                 <div class="lg:col-span-2">
-                    <div id="tableWrapper" class="hidden bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-                        <div class="px-6 py-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
-                            <h3 id="tableTitle" class="font-bold text-slate-700">資料清單</h3>
-                            <button id="closeTableBtn" class="text-xs font-bold text-slate-400 hover:text-rose-500 px-3 py-1 border border-slate-200 rounded-lg">關閉清單</button>
-                        </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse">
-                                <thead class="text-xs font-bold text-slate-400 uppercase tracking-widest bg-slate-50">
-                                    <tr>
-                                        <th class="p-6 border-b">名稱/幣別</th>
-                                        <th class="p-6 border-b text-right">本金(原)</th>
-                                        <th class="p-6 border-b text-right">含息總報酬(T)</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="dataTableBody" class="divide-y divide-slate-50 text-sm"></tbody>
-                            </table>
-                        </div>
+                    <div id="tableWrapper" class="hidden bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase">
+                                <tr>
+                                    <th class="p-5 tracking-widest">客戶/保單號碼</th>
+                                    <th class="p-5 text-right">投資本金</th>
+                                    <th class="p-5 text-right">總報酬(TWD)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dataTableBody" class="divide-y divide-slate-50"></tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -106,169 +109,125 @@
 
     <script>
         let rawData = [];
-        let currentUsdRate = 31.3245;
-        let chartInstance = null;
+        let currentUsdRate = 32.25; 
+        const FUND_PARAMS = { "DSP5": { nav: 8.4495, divRate: 0.048 }, "NGB2": { nav: 41.81, divRate: 0.23 } };
 
-        const FUND_PARAMS = {
-            "DSP5": { nav: 8.4495, divPerUnit: 0.048 }, 
-            "NGB2": { nav: 41.81, divPerUnit: 0.23 } 
+        const loading = {
+            show: () => document.getElementById('loadingOverlay').classList.remove('hidden'),
+            hide: () => document.getElementById('loadingOverlay').classList.add('hidden')
         };
 
-        async function fetchFubonRate() {
+        async function updateExchangeRate() {
             try {
-                const url = `https://api.allorigins.win/get?url=${encodeURIComponent('https://www.fubon.com/banking/personal/deposit/exchange_rate/exchange_rate_tw.htm')}`;
-                const res = await fetch(url);
-                const data = await res.json();
-                const doc = new DOMParser().parseFromString(data.contents, 'text/html');
-                const rows = doc.querySelectorAll('tr');
-                for (let row of rows) {
-                    if (row.innerText.includes('美金')) {
-                        const val = parseFloat(row.querySelectorAll('td')[2].innerText.trim());
-                        if (!isNaN(val)) {
-                            currentUsdRate = val;
-                            document.getElementById('rateDisplay').innerText = val;
-                            return;
-                        }
-                    }
+                const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+                const data = await response.json();
+                if(data.rates.TWD) {
+                    currentUsdRate = data.rates.TWD;
+                    document.getElementById('rateDisplay').innerText = currentUsdRate.toFixed(4);
                 }
-            } catch (e) { document.getElementById('rateDisplay').innerText = "31.3245 (預設)"; }
+            } catch(e) {
+                document.getElementById('rateDisplay').innerText = currentUsdRate + " (預估)";
+            }
         }
 
         document.getElementById('upload').addEventListener('change', function(e) {
             const file = e.target.files[0];
-            if(!file) return;
+            if (!file) return;
+
+            // 啟動動畫
+            loading.show();
+
             const reader = new FileReader();
-            reader.onload = async function(event) {
-                const data = new Uint8Array(event.target.result);
-                const workbook = XLSX.read(data, {type: 'array'});
-                rawData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-                await fetchFubonRate();
-                initDashboard();
+            reader.onload = function(event) {
+                try {
+                    const workbook = XLSX.read(new Uint8Array(event.target.result), {type: 'array'});
+                    rawData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                    
+                    // 確保匯率更新後才初始化介面，並在最後關閉動畫
+                    updateExchangeRate().then(() => {
+                        initDashboard();
+                        setTimeout(loading.hide, 500); // 額外延遲 0.5s 確保轉場平滑
+                    });
+                } catch (err) {
+                    alert("檔案讀取失敗，請檢查格式");
+                    loading.hide();
+                }
             };
             reader.readAsArrayBuffer(file);
         });
-
-        document.getElementById('resetBtn').addEventListener('click', () => location.reload());
-        document.getElementById('closeTableBtn').addEventListener('click', () => document.getElementById('tableWrapper').classList.add('hidden'));
-
-        function initDashboard() {
-            document.getElementById('dashboard').classList.remove('hidden');
-            document.getElementById('uploadArea').classList.add('hidden');
-            document.getElementById('rateInfo').classList.remove('hidden');
-            
-            const selector = document.getElementById('clientSelector');
-            selector.innerHTML = '<option value="none">請選擇分析對象</option>';
-            const clients = [...new Set(rawData.map(item => item['客戶名稱']))];
-            clients.forEach(c => {
-                const opt = document.createElement('option');
-                opt.value = c; opt.innerText = c;
-                selector.appendChild(opt);
-            });
-
-            calculateOverallKpi();
-        }
-
-        document.getElementById('clientSelector').addEventListener('change', (e) => {
-            if (e.target.value === 'none') {
-                document.getElementById('chartCard').classList.add('hidden');
-                document.getElementById('tableWrapper').classList.add('hidden');
-            } else {
-                renderClientAnalysis(e.target.value);
-            }
-        });
-
-        document.getElementById('toggleAllBtn').addEventListener('click', () => {
-            renderClientAnalysis('all');
-        });
-
-        function calculateOverallKpi() {
-            let k = { mv: 0, gain: 0, div: 0, m: 0, t: 0 };
-            rawData.forEach(r => {
-                const res = calcRow(r);
-                k.mv += res.mv; k.div += res.div; k.m += res.m; k.t += res.t; k.gain += (res.mv + res.div - res.cost);
-            });
-            updateKpiUI(k);
-        }
 
         function calcRow(row) {
             const units = parseFloat(row['累積單位數']) || 0;
             const capital = parseFloat(row['投資本金']) || 0;
             const cumDiv = parseFloat(row['累積配息']) || 0;
             const currency = (row['幣別'] || '').toString().trim();
-            const fund = FUND_PARAMS[row['基金標的']] || { nav: 0, divPerUnit: 0 };
-            const mv = units * fund.nav * currentUsdRate;
-            let t = 0, div = 0, cost = 0;
+            const fund = FUND_PARAMS[row['基金標的']] || { nav: 0, divRate: 0 };
+            
+            const mvTwd = units * fund.nav * currentUsdRate;
+            let totalTwd, divTwd, costTwd;
 
             if (currency === '美元' || currency === 'USD') {
-                div = cumDiv * currentUsdRate;
-                cost = capital * currentUsdRate;
-                t = (cumDiv + (units * fund.nav) - capital) * currentUsdRate;
+                divTwd = cumDiv * currentUsdRate;
+                costTwd = capital * currentUsdRate;
+                totalTwd = (cumDiv + (units * fund.nav) - capital) * currentUsdRate;
             } else {
-                div = cumDiv;
-                cost = capital;
-                t = (cumDiv + mv) - capital;
+                divTwd = cumDiv;
+                costTwd = capital;
+                totalTwd = (cumDiv + mvTwd) - capital;
             }
-            return { mv, div, cost, t, m: units * fund.divPerUnit * currentUsdRate, cap: capital };
+            return { mvTwd, divTwd, costTwd, totalTwd, monthDiv: units * fund.divRate * currentUsdRate, capRaw: capital };
+        }
+
+        function initDashboard() {
+            document.getElementById('dashboard').classList.remove('hidden');
+            document.getElementById('uploadArea').classList.add('hidden');
+            const selector = document.getElementById('clientSelector');
+            selector.innerHTML = '<option value="none">請選擇客戶...</option>';
+            
+            const clients = [...new Set(rawData.map(i => i['客戶名稱']))];
+            clients.forEach(c => {
+                const opt = document.createElement('option'); opt.value = c; opt.innerText = c; selector.appendChild(opt);
+            });
+            
+            let totalKpi = { mv: 0, div: 0, month: 0, total: 0, cost: 0 };
+            rawData.forEach(r => {
+                const res = calcRow(r);
+                totalKpi.mv += res.mvTwd;
+                totalKpi.div += res.divTwd;
+                totalKpi.month += res.monthDiv;
+                totalKpi.total += res.totalTwd;
+                totalKpi.cost += res.costTwd;
+            });
+            updateKpiUI(totalKpi);
         }
 
         function updateKpiUI(k) {
             document.getElementById('kpi1').innerText = '$' + Math.round(k.mv).toLocaleString();
-            document.getElementById('kpi2').innerText = '$' + Math.round(k.gain).toLocaleString();
+            document.getElementById('kpi2').innerText = '$' + Math.round(k.total - k.div).toLocaleString();
             document.getElementById('kpi3').innerText = '$' + Math.round(k.div).toLocaleString();
-            document.getElementById('kpi4').innerText = '$' + Math.round(k.m).toLocaleString();
-            document.getElementById('kpi5').innerText = '$' + Math.round(k.t).toLocaleString();
+            document.getElementById('kpi4').innerText = '$' + Math.round(k.month).toLocaleString();
+            document.getElementById('kpi5').innerText = '$' + Math.round(k.total).toLocaleString();
         }
 
-        function renderClientAnalysis(name) {
+        document.getElementById('clientSelector').addEventListener('change', e => renderAnalysis(e.target.value));
+        document.getElementById('toggleAllBtn').addEventListener('click', () => renderAnalysis('all'));
+
+        function renderAnalysis(name) {
+            if (name === 'none') return;
             const isAll = name === 'all';
             const filtered = isAll ? rawData : rawData.filter(d => d['客戶名稱'] === name);
-            const tableBody = document.getElementById('dataTableBody');
+            const tbody = document.getElementById('dataTableBody');
             document.getElementById('tableWrapper').classList.remove('hidden');
-            document.getElementById('tableTitle').innerText = isAll ? '全體客戶明細清單' : name + ' 的保單分析';
-            tableBody.innerHTML = '';
-
-            let totalCost = 0, totalProfit = 0, totalDiv = 0;
+            tbody.innerHTML = '';
 
             filtered.forEach(r => {
                 const res = calcRow(r);
-                totalCost += res.cost;
-                totalDiv += res.div;
-                totalProfit += (res.t - (res.div - (res.cost * 0))); // 簡化匯差與淨值獲利
-
-                tableBody.innerHTML += `
-                    <tr class="hover:bg-slate-50 transition cursor-default">
-                        <td class="p-6 border-b"><div class="font-bold text-slate-800">${r['客戶名稱']}</div><div class="text-xs text-slate-400">${r['幣別']} | ${r['基金標的']}</div></td>
-                        <td class="p-6 border-b text-right font-mono text-slate-600">${res.cap.toLocaleString()}</td>
-                        <td class="p-6 border-b text-right font-black ${res.t >= 0 ? 'text-emerald-600' : 'text-rose-500'}">$${Math.round(res.t).toLocaleString()}</td>
+                tbody.innerHTML += `
+                    <tr class="text-sm">
+                        <td class="p-5 font-bold text-slate-700">${r['客戶名稱']}<br><span class="text-[10px] text-slate-400 font-normal tracking-tighter">${r['保單號碼']}</span></td>
+                        <td class="p-5 text-right font-mono text-slate-500">${res.capRaw.toLocaleString()}</td>
+                        <td class="p-5 text-right font-black ${res.totalTwd >=0 ? 'text-emerald-600' : 'text-rose-500'}">$${Math.round(res.totalTwd).toLocaleString()}</td>
                     </tr>`;
-            });
-
-            if(!isAll) {
-                document.getElementById('chartCard').classList.remove('hidden');
-                drawChart(totalCost, totalDiv, totalProfit);
-            } else {
-                document.getElementById('chartCard').classList.add('hidden');
-            }
-        }
-
-        function drawChart(cost, div, profit) {
-            if (chartInstance) chartInstance.destroy();
-            const ctx = document.getElementById('clientChart').getContext('2d');
-            chartInstance = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['原始本金', '累積配息', '淨值與匯獲利'],
-                    datasets: [{
-                        data: [cost, div, Math.max(0, profit)],
-                        backgroundColor: ['#e2e8f0', '#f59e0b', '#2563eb'],
-                        borderWidth: 0
-                    }]
-                },
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, font: { size: 11 } } } }
-                }
             });
         }
     </script>
