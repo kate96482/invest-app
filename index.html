@@ -16,7 +16,7 @@
         .soft-shadow { box-shadow: 0 8px 30px rgba(0,0,0,0.04); }
         .gold-gradient { background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); }
 
-        /* 1:1 正方形畫布 (隱藏，僅供 html2canvas 渲染使用) */
+        /* 1:1 正方形截圖畫布 (隱藏，僅供 html2canvas 使用) */
         #renderCanvas {
             position: absolute; left: -9999px; top: 0;
             width: 600px; height: 600px;
@@ -51,7 +51,7 @@
             <h3 class="font-bold text-slate-700 text-lg">請導入 Excel 檔案</h3>
             <p class="text-slate-400 text-sm mb-8">開始您的專業資產分析</p>
             <input type="file" id="upload" accept=".xlsx, .xls" class="hidden"/>
-            <button onclick="document.getElementById('upload').click()" class="bg-slate-900 text-white w-full py-4 rounded-2xl font-bold shadow-xl active:scale-95 transition-transform">選擇檔案</button>
+            <button onclick="document.getElementById('upload').click()" class="bg-slate-900 text-white w-full py-4 rounded-2xl font-bold shadow-xl active:scale-95 transition-transform hover:bg-slate-800">選擇檔案</button>
         </div>
 
         <div id="dashboard" class="hidden space-y-4">
@@ -318,7 +318,7 @@
                 document.getElementById('indivDivTotal').innerText = '$' + Math.round(k.div).toLocaleString();
             }
 
-            // --- 關鍵修正：同步更新至截圖畫布 (renderCanvas) ---
+            // 同步更新至截圖畫布
             document.getElementById('r-kpi1').innerText = '$' + Math.round(k.mv).toLocaleString();
             document.getElementById('r-kpi2').innerText = '$' + Math.round(k.cap).toLocaleString();
             document.getElementById('r-kpi3').innerText = '$' + Math.round(k.div).toLocaleString();
@@ -326,21 +326,19 @@
             document.getElementById('r-kpi5').innerText = '$' + Math.round(k.total).toLocaleString();
             document.getElementById('r-indivDiv').innerText = '$' + Math.round(k.div).toLocaleString();
 
-            // 修正市場波動與回本率顯示
             const rf = document.getElementById('r-fluct');
             rf.innerText = (fluctPct >= 0 ? '+' : '') + fluctPct.toFixed(2) + '%';
             rf.style.backgroundColor = fluctPct >= 0 ? '#d1fae5' : '#fee2e2';
             rf.style.color = fluctPct >= 0 ? '#059669' : '#dc2626';
 
-            const ry = document.getElementById('r-yield');
-            ry.innerText = annualYield.toFixed(2) + '%';
+            document.getElementById('r-yield').innerText = annualYield.toFixed(2) + '%';
 
             const rr = document.getElementById('r-return');
             rr.innerText = (totalReturnRate >= 0 ? '+' : '') + totalReturnRate.toFixed(2) + '%';
             rr.style.backgroundColor = totalReturnRate >= 0 ? '#d1fae5' : '#fee2e2';
             rr.style.color = totalReturnRate >= 0 ? '#059669' : '#dc2626';
 
-            // 同步階梯圖高度
+            // 同步階梯圖高度到截圖 Canvas
             const originalBars = document.querySelectorAll('#individualAnalysis div.h-24 div[id^="bar"]');
             originalBars.forEach((bar, index) => {
                 const rBar = document.getElementById('r-bar' + (index + 1));
@@ -400,7 +398,7 @@
             overlay.classList.remove('hidden');
 
             try {
-                // 渲染前再次確保數據同步
+                // 截圖前確保截圖畫布是根據當前選擇的人員最新數據
                 const currentClient = document.getElementById('clientSelector').value;
                 calculateAndDisplayKpi(currentClient === 'none' ? 'all' : currentClient);
 
