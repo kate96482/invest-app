@@ -29,7 +29,7 @@
                 <h1 class="text-2xl font-black text-slate-800">資產分析助手</h1>
                 <p class="text-slate-400 text-xs">投資狀態一眼搞定</p>
             </div>
-            <div class="bg-indigo-50 px-3 py-1 rounded-full text-right border border-indigo-100">
+            <div class="bg-indigo-50 px-3 py-1 rounded-full text-right border border-indigo-100 shadow-sm">
                 <span class="text-[10px] text-indigo-400 font-bold block leading-none">USD/TWD</span>
                 <span id="rateDisplay" class="text-xs font-black text-indigo-600">載入中</span>
             </div>
@@ -112,7 +112,7 @@
         let myChart = null;
         let isDetailsVisible = false;
 
-        // 更新後的配息參數
+        // 已設定為您指定的配息金額 (USD)
         const FUND_PARAMS = { 
             "DSP5": { nav: 8.4495, divRate: 0.055 }, 
             "NGB2": { nav: 41.81, divRate: 0.59 } 
@@ -145,6 +145,7 @@
             reader.readAsArrayBuffer(file);
         });
 
+        // --- 核心計算邏輯修正區 ---
         function calcRow(row) {
             const units = parseFloat(row['累積單位數']) || 0;
             const capital = parseFloat(row['投資本金']) || 0;
@@ -152,17 +153,25 @@
             const currency = (row['幣別'] || '').toString().trim();
             const fund = FUND_PARAMS[row['基金標的']] || { nav: 0, divRate: 0 };
             
+            // 1. 資產市值 (TWD) = 單位數 * 淨值 * 最新匯率
             const mvTwd = units * fund.nav * currentUsdRate;
-            let totalTwd, divTwd, monthDiv;
+
+            // 2. 預估月配息 (TWD) 修正：
+            // 由於配息率(divRate)是美金單位，所以不論保單幣別，都必須乘上最新匯率
+            const monthDiv = units * fund.divRate * currentUsdRate;
+
+            let totalTwd, divTwd;
 
             if (currency === '美元' || currency === 'USD') {
+                // 美元保單：Excel 內的累積配息是美金，需轉台幣
                 divTwd = cumDiv * currentUsdRate;
+                // 含息總報酬 (TWD) = (累積配息 + 當前美金市值 - 投資本金) * 匯率
                 totalTwd = (cumDiv + (units * fund.nav) - capital) * currentUsdRate;
-                monthDiv = units * fund.divRate * currentUsdRate;
             } else {
+                // 台幣保單：Excel 內的累積配息與本金已是台幣
                 divTwd = cumDiv; 
+                // 含息總報酬 (TWD) = 累積配息(台) + 市值(台) - 投資本金(台)
                 totalTwd = (cumDiv + mvTwd) - capital;
-                monthDiv = units * fund.divRate * 1; 
             }
             return { mvTwd, divTwd, totalTwd, monthDiv };
         }
