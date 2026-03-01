@@ -406,6 +406,7 @@
                 yieldEl.classList.add('hidden');
                 retEl.classList.add('hidden');
             } else {
+                // 恢復市場波動標籤顯示
                 pctEl.classList.remove('hidden');
                 pctEl.innerText = (fluctPct >= 0 ? '+' : '') + fluctPct.toFixed(2) + '%';
                 pctEl.className = `text-[9px] font-black px-1.5 py-0.5 rounded-md ${fluctPct >= 0 ? 'text-emerald-600 bg-emerald-100/50' : 'text-rose-600 bg-rose-100/50'}`;
