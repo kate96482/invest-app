@@ -1,326 +1,329 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>保單理財小管家</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
-        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; }
-        #loadingOverlay { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); z-index: 9999; }
-        .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-        .kpi-card-main { grid-column: span 2; }
-        .soft-shadow { box-shadow: 0 8px 30px rgba(0,0,0,0.04); }
-        .gold-gradient { background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>保單理財小管家</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; }
+        #loadingOverlay { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); z-index: 9999; }
+        .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .kpi-card-main { grid-column: span 2; }
+        .soft-shadow { box-shadow: 0 8px 30px rgba(0,0,0,0.04); }
+        .gold-gradient { background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); }
+    </style>
 </head>
 <body class="pb-10">
 
-    <div id="loadingOverlay" class="hidden fixed inset-0 bg-white/60 flex flex-col items-center justify-center">
-        <div class="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-        <p class="mt-4 text-indigo-600 font-bold">數據精確同步中...</p>
-    </div>
+    <div id="loadingOverlay" class="hidden fixed inset-0 bg-white/60 flex flex-col items-center justify-center">
+        <div class="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+        <p class="mt-4 text-indigo-600 font-bold">數據精確同步中...</p>
+    </div>
 
-    <div class="max-w-md mx-auto px-4 py-6">
-        <header class="mb-6 flex justify-between items-center">
-            <div>
-                <h1 class="text-2xl font-black text-slate-800">資產分析助手</h1>
-                <p class="text-slate-400 text-xs">市場數據自動同步已開啟</p>
-            </div>
-            <div class="bg-indigo-50 px-3 py-1 rounded-full text-right border border-indigo-100 shadow-sm">
-                <span class="text-[10px] text-indigo-400 font-bold block leading-none">USD/TWD</span>
-                <span id="rateDisplay" class="text-xs font-black text-indigo-600">連線中</span>
-            </div>
-        </header>
+    <div class="max-w-md mx-auto px-4 py-6">
+        <header class="mb-6 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-black text-slate-800">資產分析助手</h1>
+                <p class="text-slate-400 text-xs">市場數據自動同步已開啟</p>
+            </div>
+            <div class="bg-indigo-50 px-3 py-1 rounded-full text-right border border-indigo-100 shadow-sm">
+                <span class="text-[10px] text-indigo-400 font-bold block leading-none">USD/TWD</span>
+                <span id="rateDisplay" class="text-xs font-black text-indigo-600">連線中</span>
+            </div>
+        </header>
 
-        <div id="uploadArea" class="bg-white p-10 rounded-[2.5rem] soft-shadow border-2 border-dashed border-slate-200 text-center mb-6">
-            <div class="text-5xl mb-4">📥</div>
-            <h3 class="font-bold text-slate-700 text-lg">請導入 Excel 檔案</h3>
-            <p class="text-slate-400 text-sm mb-8">開始您的專業分析</p>
-            <input type="file" id="upload" accept=".xlsx, .xls" class="hidden"/>
-            <button onclick="document.getElementById('upload').click()" class="bg-slate-900 text-white w-full py-4 rounded-2xl font-bold shadow-xl active:scale-95 transition-transform">選擇檔案</button>
-        </div>
+        <div id="uploadArea" class="bg-white p-10 rounded-[2.5rem] soft-shadow border-2 border-dashed border-slate-200 text-center mb-6">
+            <div class="text-5xl mb-4">📥</div>
+            <h3 class="font-bold text-slate-700 text-lg">請導入 Excel 檔案</h3>
+            <p class="text-slate-400 text-sm mb-8">開始您的專業分析</p>
+            <input type="file" id="upload" accept=".xlsx, .xls" class="hidden"/>
+            <button onclick="document.getElementById('upload').click()" class="bg-slate-900 text-white w-full py-4 rounded-2xl font-bold shadow-xl active:scale-95 transition-transform">選擇檔案</button>
+        </div>
 
-        <div id="dashboard" class="hidden space-y-4">
-            <div class="flex justify-between items-center">
-                <button onclick="backToOverall()" class="text-xs font-bold text-indigo-600 bg-indigo-50 px-4 py-2 rounded-full flex items-center gap-1 hover:bg-indigo-600 hover:text-white transition-all shadow-sm">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 15l-3-3m0 0l3-3m-3 3h8M3 12a9 9 0 1118 0 9 9 0 01-18 0z"></path></svg>
-                    回到總體分析
-                </button>
-                <button onclick="location.reload()" class="text-xs font-bold text-slate-400 flex items-center gap-1 hover:text-rose-500 transition-colors">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                    重新上傳
-                </button>
-            </div>
+        <div id="dashboard" class="hidden space-y-4">
+            <div class="flex justify-between items-center">
+                <button onclick="backToOverall()" class="text-xs font-bold text-indigo-600 bg-indigo-50 px-4 py-2 rounded-full flex items-center gap-1 hover:bg-indigo-600 hover:text-white transition-all shadow-sm">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 15l-3-3m0 0l3-3m-3 3h8M3 12a9 9 0 1118 0 9 9 0 01-18 0z"></path></svg>
+                    回到總體分析
+                </button>
+                <button onclick="location.reload()" class="text-xs font-bold text-slate-400 flex items-center gap-1 hover:text-rose-500 transition-colors">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    重新上傳
+                </button>
+            </div>
 
-            <div id="kpiSection" class="kpi-grid">
-                                <div class="kpi-card-main bg-slate-900 p-6 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden transition-all duration-500">
-                    <div class="relative z-10">
-                        <p class="text-xs font-bold opacity-50 mb-1 tracking-widest uppercase">總投資市值</p>
-                        <p id="kpi1" class="text-3xl font-black tracking-tight">$0</p>
-                    </div>
-                    <div class="absolute -right-4 -bottom-4 text-white/5 text-6xl font-black italic uppercase">Asset</div>
-                </div>
+            <div id="kpiSection" class="kpi-grid">
+                <div class="kpi-card-main bg-slate-900 p-6 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden transition-all duration-500">
+                    <div class="relative z-10">
+                        <p id="kpiTitle" class="text-xs font-bold opacity-50 mb-1 tracking-widest uppercase">總投資市值</p>
+                        <p id="kpi1" class="text-3xl font-black tracking-tight">$0</p>
+                    </div>
+                    <div class="absolute -right-4 -bottom-4 text-white/5 text-6xl font-black italic uppercase" id="kpiLabelBg">Asset</div>
+                </div>
 
-                                <div class="bg-blue-50 p-5 rounded-[2rem] border border-blue-100/50 relative">
-                    <div class="flex justify-between items-start">
-                        <p class="text-[10px] font-bold text-blue-400 uppercase mb-1">投入本金</p>
-                        <div class="flex flex-col items-end">
-                            <span id="marketFluctRate" class="text-[9px] font-black px-1.5 py-0.5 rounded-md leading-none mb-1"></span>
-                            <span id="marketFluct" class="text-[8px] font-bold opacity-60"></span>
-                        </div>
-                    </div>
-                    <p id="kpi2" class="text-lg font-black text-blue-900">$0</p>
-                </div>
+                <div class="bg-blue-50 p-5 rounded-[2rem] border border-blue-100/50 relative">
+                    <div class="flex justify-between items-start">
+                        <p class="text-[10px] font-bold text-blue-400 uppercase mb-1">投入本金</p>
+                        <div class="flex flex-col items-end">
+                            <span id="marketFluctPercent" class="text-[9px] font-black leading-none mb-0.5"></span>
+                            <span id="marketFluct" class="text-[9px] font-bold opacity-80 leading-none"></span>
+                        </div>
+                    </div>
+                    <p id="kpi2" class="text-lg font-black text-blue-900">$0</p>
+                </div>
 
-                <div class="bg-amber-50 p-5 rounded-[2rem] border border-amber-100/50">
-                    <p class="text-[10px] font-bold text-amber-500 uppercase mb-1">累積配息</p>
-                    <p id="kpi3" class="text-lg font-black text-amber-900">$0</p>
-                </div>
+                <div class="bg-amber-50 p-5 rounded-[2rem] border border-amber-100/50">
+                    <p class="text-[10px] font-bold text-amber-500 uppercase mb-1">累積配息</p>
+                    <p id="kpi3" class="text-lg font-black text-amber-900">$0</p>
+                </div>
 
-                                <div id="monthlyDivCard" class="bg-indigo-50 p-5 rounded-[2rem] border border-indigo-100/50">
-                    <div class="flex justify-between items-start mb-1">
-                        <p class="text-[10px] font-bold text-indigo-500 uppercase">預估月配息</p>
-                        <span id="annualYield" class="text-[9px] font-black text-indigo-600 bg-indigo-100/50 px-1.5 py-0.5 rounded-md"></span>
-                    </div>
-                    <p id="kpi4" class="text-lg font-black text-indigo-900">$0</p>
-                </div>
+                <div id="monthlyDivCard" class="bg-indigo-50 p-5 rounded-[2rem] border border-indigo-100/50">
+                    <div class="flex justify-between items-start mb-1">
+                        <p class="text-[10px] font-bold text-indigo-500 uppercase">預估月配息</p>
+                        <span id="annualDivYield" class="text-[9px] font-black text-indigo-600 bg-indigo-100/50 px-1.5 py-0.5 rounded-md"></span>
+                    </div>
+                    <p id="kpi4" class="text-lg font-black text-indigo-900">$0</p>
+                </div>
 
-                <div class="bg-emerald-50 p-5 rounded-[2rem] border border-emerald-100/50">
-                    <div class="flex justify-between items-center mb-1">
-                        <p class="text-[10px] font-bold text-emerald-600 uppercase">含息總報酬</p>
-                        <span id="totalReturnRate" class="text-[10px] font-black text-emerald-700"></span>
-                    </div>
-                    <p id="kpi5" class="text-lg font-black text-emerald-900">$0</p>
-                </div>
-            </div>
+                <div class="bg-emerald-50 p-5 rounded-[2rem] border border-emerald-100/50">
+                    <div class="flex justify-between items-center mb-1">
+                        <p class="text-[10px] font-bold text-emerald-600 uppercase">含息總報酬</p>
+                        <span id="totalReturnRate" class="text-[10px] font-black text-emerald-700"></span>
+                    </div>
+                    <p id="kpi5" class="text-lg font-black text-emerald-900">$0</p>
+                </div>
+            </div>
 
-            <div class="bg-white p-6 rounded-[2.5rem] soft-shadow">
-                <div class="flex items-center justify-between mb-4">
-                    <label class="text-sm font-black text-slate-700">選擇分析對象</label>
-                    <button id="toggleAllBtn" class="text-xs bg-slate-100 px-3 py-1.5 rounded-full font-bold text-slate-500 hover:bg-slate-800 hover:text-white transition-all">展開全體名細</button>
-                </div>
-                <select id="clientSelector" class="w-full bg-slate-50 border-0 p-4 rounded-2xl font-bold text-slate-800 mb-6 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"></select>
-                
-                <div id="individualAnalysis" class="hidden space-y-4">
-                    <div class="flex justify-between items-center mb-2">
-                        <h3 class="font-black text-slate-800 text-sm">長期配息增長趨勢</h3>
-                        <span id="indivDivTotal" class="text-amber-500 font-black text-lg">$0</span>
-                    </div>
-                    <div class="h-32 w-full bg-slate-50 rounded-2xl flex items-end p-2 gap-1.5 mb-4">
-                        <div class="flex-1 bg-amber-100 rounded-t-lg" style="height: 20%"></div>
-                        <div class="flex-1 bg-amber-200 rounded-t-lg" style="height: 35%"></div>
-                        <div class="flex-1 bg-amber-300 rounded-t-lg" style="height: 55%"></div>
-                        <div class="flex-1 bg-amber-400 rounded-t-lg" style="height: 75%"></div>
-                        <div class="flex-1 gold-gradient rounded-t-lg shadow-lg shadow-amber-200" style="height: 100%"></div>
-                    </div>
-                    <div class="p-4 bg-amber-50 rounded-2xl border border-amber-100 text-center">
-                        <p class="text-[11px] text-amber-800 font-bold">
-                            累積回本率已達：<span id="indivPaybackRate" class="text-amber-600 font-black text-base">0%</span>
-                        </p>
-                    </div>
-                </div>
-            </div>
+            <div class="bg-white p-6 rounded-[2.5rem] soft-shadow">
+                <div class="flex items-center justify-between mb-4">
+                    <label class="text-sm font-black text-slate-700">選擇分析對象</label>
+                    <button id="toggleAllBtn" class="text-xs bg-slate-100 px-3 py-1.5 rounded-full font-bold text-slate-500 hover:bg-slate-800 hover:text-white transition-all">展開全體名細</button>
+                </div>
+                <select id="clientSelector" class="w-full bg-slate-50 border-0 p-4 rounded-2xl font-bold text-slate-800 mb-6 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"></select>
+                
+                <div id="individualAnalysis" class="hidden space-y-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="font-black text-slate-800 text-sm">長期配息增長趨勢</h3>
+                        <span id="indivDivTotal" class="text-amber-500 font-black text-lg">$0</span>
+                    </div>
+                    <div class="h-32 w-full bg-slate-50 rounded-2xl flex items-end p-2 gap-1.5 mb-4">
+                        <div class="flex-1 bg-amber-100 rounded-t-lg" style="height: 20%"></div>
+                        <div class="flex-1 bg-amber-200 rounded-t-lg" style="height: 35%"></div>
+                        <div class="flex-1 bg-amber-300 rounded-t-lg" style="height: 55%"></div>
+                        <div class="flex-1 bg-amber-400 rounded-t-lg" style="height: 75%"></div>
+                        <div class="flex-1 gold-gradient rounded-t-lg shadow-lg shadow-amber-200" style="height: 100%"></div>
+                    </div>
+                    <div class="p-4 bg-amber-50 rounded-2xl border border-amber-100 text-center">
+                        <p class="text-[11px] text-amber-800 font-bold">
+                            累積回本率已達：<span id="indivPaybackRate" class="text-amber-600 font-black text-base">0%</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
 
-            <div id="tableWrapper" class="hidden bg-white rounded-[2.5rem] soft-shadow overflow-hidden">
-                <div class="p-5 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
-                    <span class="font-black text-slate-700 text-sm">數據名細表</span>
-                    <span class="text-[10px] font-bold text-slate-400">單位：TWD (Live數據)</span>
-                </div>
-                <div id="dataTableBody" class="divide-y divide-slate-50"></div>
-            </div>
-        </div>
-    </div>
+            <div id="tableWrapper" class="hidden bg-white rounded-[2.5rem] soft-shadow overflow-hidden">
+                <div class="p-5 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+                    <span class="font-black text-slate-700 text-sm">數據名細表</span>
+                    <span class="text-[10px] font-bold text-slate-400">單位：TWD (Live數據)</span>
+                </div>
+                <div id="dataTableBody" class="divide-y divide-slate-50"></div>
+            </div>
+        </div>
+    </div>
 
-    <script>
-        let rawData = [];
-        let currentUsdRate = 32.50; 
-        let isDetailsVisible = false;
+    <script>
+        let rawData = [];
+        let currentUsdRate = 32.50; 
+        let isDetailsVisible = false;
 
-        const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQHKETau10x9H1XCGiO-nDUdlgB7eMIYMTi25y5-ZYiUECEDnNHN22CxxVvitdmTLUZAHSVBrZCbK2P/pub?gid=0&single=true&output=csv"; 
+        const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQHKETau10x9H1XCGiO-nDUdlgB7eMIYMTi25y5-ZYiUECEDnNHN22CxxVvitdmTLUZAHSVBrZCbK2P/pub?gid=0&single=true&output=csv"; 
 
-        const FUND_PARAMS = { 
-            "DSP5": { nav: 8.4495, divRate: 0.055 }, 
-            "NGB2": { nav: 41.81, divRate: 0.59 } 
-        };
+        const FUND_PARAMS = { 
+            "DSP5": { nav: 8.4495, divRate: 0.055 }, 
+            "NGB2": { nav: 41.81, divRate: 0.59 } 
+        };
 
-        async function syncMarketData() {
-            if (!SHEET_CSV_URL) return;
-            try {
-                const response = await fetch(SHEET_CSV_URL);
-                const text = await response.text();
-                const rows = text.split('\n').map(row => row.split(','));
-                rows.forEach(r => {
-                    const key = (r[0] || '').trim();
-                    const val = parseFloat(r[1]);
-                    if (key === "DSP5_NAV") FUND_PARAMS["DSP5"].nav = val;
-                    if (key === "NGB2_NAV") FUND_PARAMS["NGB2"].nav = val;
-                    if (key === "USD_TWD") currentUsdRate = val;
-                });
-                document.getElementById('rateDisplay').innerText = currentUsdRate.toFixed(2);
-            } catch (e) {
-                console.error("同步失敗:", e);
-                fetch('https://api.exchangerate-api.com/v4/latest/USD')
-                    .then(res => res.json())
-                    .then(data => {
-                        currentUsdRate = data.rates.TWD;
-                        document.getElementById('rateDisplay').innerText = currentUsdRate.toFixed(2);
-                    });
-            }
-        }
+        async function syncMarketData() {
+            if (!SHEET_CSV_URL) return;
+            try {
+                const response = await fetch(SHEET_CSV_URL);
+                const text = await response.text();
+                const rows = text.split('\n').map(row => row.split(','));
+                rows.forEach(r => {
+                    const key = (r[0] || '').trim();
+                    const val = parseFloat(r[1]);
+                    if (key === "DSP5_NAV") FUND_PARAMS["DSP5"].nav = val;
+                    if (key === "NGB2_NAV") FUND_PARAMS["NGB2"].nav = val;
+                    if (key === "USD_TWD") currentUsdRate = val;
+                });
+                document.getElementById('rateDisplay').innerText = currentUsdRate.toFixed(2);
+            } catch (e) {
+                console.error("同步失敗:", e);
+                fetch('https://api.exchangerate-api.com/v4/latest/USD')
+                    .then(res => res.json())
+                    .then(data => {
+                        currentUsdRate = data.rates.TWD;
+                        document.getElementById('rateDisplay').innerText = currentUsdRate.toFixed(2);
+                    });
+            }
+        }
 
-        document.getElementById('upload').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            document.getElementById('loadingOverlay').classList.remove('hidden');
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                const workbook = XLSX.read(new Uint8Array(event.target.result), {type: 'array'});
-                rawData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-                syncMarketData().then(() => {
-                    initDashboard();
-                    setTimeout(() => document.getElementById('loadingOverlay').classList.add('hidden'), 500);
-                });
-            };
-            reader.readAsArrayBuffer(file);
-        });
+        document.getElementById('upload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const workbook = XLSX.read(new Uint8Array(event.target.result), {type: 'array'});
+                rawData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                syncMarketData().then(() => {
+                    initDashboard();
+                    setTimeout(() => document.getElementById('loadingOverlay').classList.add('hidden'), 500);
+                });
+            };
+            reader.readAsArrayBuffer(file);
+        });
 
-        function calcRow(row) {
-            const units = parseFloat(row['累積單位數']) || 0;
-            const capital = parseFloat(row['投資本金']) || 0;
-            const cumDiv = parseFloat(row['累積配息']) || 0;
-            const currency = (row['幣別'] || '').toString().trim();
-            const fund = FUND_PARAMS[row['基金標的']] || { nav: 0, divRate: 0 };
-            
-            const mvTwd = units * fund.nav * currentUsdRate;
-            const monthDiv = units * fund.divRate * currentUsdRate;
+        function calcRow(row) {
+            const units = parseFloat(row['累積單位數']) || 0;
+            const capital = parseFloat(row['投資本金']) || 0;
+            const cumDiv = parseFloat(row['累積配息']) || 0;
+            const currency = (row['幣別'] || '').toString().trim();
+            const fund = FUND_PARAMS[row['基金標的']] || { nav: 0, divRate: 0 };
+            
+            const mvTwd = units * fund.nav * currentUsdRate;
+            const monthDiv = units * fund.divRate * currentUsdRate;
 
-            let divTwd, totalTwd, capitalTwd;
-            if (currency === '美元' || currency === 'USD') {
-                divTwd = cumDiv * currentUsdRate;
-                capitalTwd = capital * currentUsdRate;
-                totalTwd = (cumDiv + (units * fund.nav) - capital) * currentUsdRate;
-            } else {
-                divTwd = cumDiv; 
-                capitalTwd = capital;
-                totalTwd = (cumDiv + mvTwd) - capital;
-            }
-            return { mvTwd, divTwd, totalTwd, monthDiv, capitalTwd };
-        }
+            let divTwd, totalTwd, capitalTwd;
+            if (currency === '美元' || currency === 'USD') {
+                divTwd = cumDiv * currentUsdRate;
+                capitalTwd = capital * currentUsdRate;
+                totalTwd = (cumDiv + (units * fund.nav) - capital) * currentUsdRate;
+            } else {
+                divTwd = cumDiv; 
+                capitalTwd = capital;
+                totalTwd = (cumDiv + mvTwd) - capital;
+            }
+            return { mvTwd, divTwd, totalTwd, monthDiv, capitalTwd };
+        }
 
-        function initDashboard() {
-            document.getElementById('dashboard').classList.remove('hidden');
-            document.getElementById('uploadArea').classList.add('hidden');
-            const selector = document.getElementById('clientSelector');
-            selector.innerHTML = '<option value="none">--- 請選擇客戶 ---</option>';
-            [...new Set(rawData.map(i => i['客戶名稱']))].forEach(c => {
-                const opt = document.createElement('option'); opt.value = c; opt.innerText = c; selector.appendChild(opt);
-            });
-            backToOverall();
-        }
+        function initDashboard() {
+            document.getElementById('dashboard').classList.remove('hidden');
+            document.getElementById('uploadArea').classList.add('hidden');
+            const selector = document.getElementById('clientSelector');
+            selector.innerHTML = '<option value="none">--- 請選擇客戶 ---</option>';
+            [...new Set(rawData.map(i => i['客戶名稱']))].forEach(c => {
+                const opt = document.createElement('option'); opt.value = c; opt.innerText = c; selector.appendChild(opt);
+            });
+            backToOverall();
+        }
 
-        function backToOverall() {
-            document.getElementById('clientSelector').value = 'none';
-            document.getElementById('individualAnalysis').classList.add('hidden');
-            calculateAndDisplayKpi('all');
-            document.getElementById('tableWrapper').classList.add('hidden');
-            isDetailsVisible = false;
-            const btn = document.getElementById('toggleAllBtn');
-            btn.innerText = "展開全體名細";
-            btn.className = "text-xs bg-slate-100 px-3 py-1.5 rounded-full font-bold text-slate-500 hover:bg-slate-800 hover:text-white transition-all";
-        }
+        function backToOverall() {
+            document.getElementById('clientSelector').value = 'none';
+            document.getElementById('kpiTitle').innerText = "總投資市值";
+            document.getElementById('kpiLabelBg').innerText = "Asset";
+            document.getElementById('individualAnalysis').classList.add('hidden');
+            calculateAndDisplayKpi('all');
+            document.getElementById('tableWrapper').classList.add('hidden');
+            isDetailsVisible = false;
+            const btn = document.getElementById('toggleAllBtn');
+            btn.innerText = "展開全體名細";
+            btn.className = "text-xs bg-slate-100 px-3 py-1.5 rounded-full font-bold text-slate-500 hover:bg-slate-800 hover:text-white transition-all";
+        }
 
-        function calculateAndDisplayKpi(targetName) {
-            const filtered = targetName === 'all' ? rawData : rawData.filter(d => d['客戶名稱'] === targetName);
-            let k = { mv: 0, div: 0, month: 0, total: 0, cap: 0 };
-            filtered.forEach(r => {
-                const res = calcRow(r);
-                k.mv += res.mvTwd; k.div += res.divTwd; k.month += res.monthDiv; k.total += res.totalTwd; k.cap += res.capitalTwd;
-            });
+        function calculateAndDisplayKpi(targetName) {
+            const filtered = targetName === 'all' ? rawData : rawData.filter(d => d['客戶名稱'] === targetName);
+            let k = { mv: 0, div: 0, month: 0, total: 0, cap: 0 };
+            filtered.forEach(r => {
+                const res = calcRow(r);
+                k.mv += res.mvTwd; k.div += res.divTwd; k.month += res.monthDiv; k.total += res.totalTwd; k.cap += res.capitalTwd;
+            });
 
-            // 市場波動計算
-            const fluctAmount = k.mv - k.cap;
-            const fluctRate = k.cap > 0 ? (fluctAmount / k.cap) * 100 : 0;
-            const totalReturnRate = k.cap > 0 ? (((k.div + k.mv) / k.cap) - 1) * 100 : 0;
-            const annualYield = k.mv > 0 ? (k.month * 12 / k.mv) * 100 : 0;
+            // 計算波動
+            const fluctAmt = k.mv - k.cap;
+            const fluctPct = k.cap > 0 ? (fluctAmt / k.cap) * 100 : 0;
+            const totalReturnRate = k.cap > 0 ? (((k.div + k.mv) / k.cap) - 1) * 100 : 0;
+            const annualYield = k.mv > 0 ? (k.month * 12 / k.mv) * 100 : 0;
 
-            // 更新各數值 (kpi1 固定維持總市值)
-            document.getElementById('kpi1').innerText = '$' + Math.round(k.mv).toLocaleString();
-            document.getElementById('kpi2').innerText = '$' + Math.round(k.cap).toLocaleString();
-            document.getElementById('kpi3').innerText = '$' + Math.round(k.div).toLocaleString();
-            document.getElementById('kpi4').innerText = '$' + Math.round(k.month).toLocaleString();
-            document.getElementById('kpi5').innerText = '$' + Math.round(k.total).toLocaleString();
-            
-            // 更新投入本金右上角：市場波動百分比與金額
-            const fluctRateEl = document.getElementById('marketFluctRate');
-            const fluctAmtEl = document.getElementById('marketFluct');
-            fluctRateEl.innerText = (fluctRate >= 0 ? '+' : '') + fluctRate.toFixed(2) + '%';
-            fluctAmtEl.innerText = (fluctAmount >= 0 ? '+' : '') + Math.round(fluctAmount).toLocaleString();
-            fluctRateEl.className = `text-[9px] font-black px-1.5 py-0.5 rounded-md leading-none mb-1 ${fluctRate >= 0 ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`;
-            
-            // 更新預估年化配息率
-            document.getElementById('annualYield').innerText = annualYield.toFixed(2) + '%';
+            // 更新 UI
+            document.getElementById('kpi1').innerText = '$' + Math.round(k.mv).toLocaleString();
+            document.getElementById('kpi2').innerText = '$' + Math.round(k.cap).toLocaleString();
+            document.getElementById('kpi3').innerText = '$' + Math.round(k.div).toLocaleString();
+            document.getElementById('kpi4').innerText = '$' + Math.round(k.month).toLocaleString();
+            document.getElementById('kpi5').innerText = '$' + Math.round(k.total).toLocaleString();
+            
+            // 投入本金右上角：波動% 與 波動金額
+            const fluctPctEl = document.getElementById('marketFluctPercent');
+            const fluctAmtEl = document.getElementById('marketFluct');
+            fluctPctEl.innerText = (fluctPct >= 0 ? '+' : '') + fluctPct.toFixed(2) + '%';
+            fluctAmtEl.innerText = (fluctAmt >= 0 ? '+' : '') + Math.round(fluctAmt).toLocaleString();
+            fluctPctEl.className = `text-[9px] font-black leading-none mb-0.5 ${fluctPct >= 0 ? 'text-emerald-500' : 'text-rose-500'}`;
+            fluctAmtEl.className = `text-[9px] font-bold opacity-80 leading-none ${fluctAmt >= 0 ? 'text-emerald-500' : 'text-rose-500'}`;
+            
+            // 預估月配息右上角：年化率
+            document.getElementById('annualDivYield').innerText = annualYield.toFixed(2) + '%';
 
-            // 更新報酬率
-            document.getElementById('totalReturnRate').innerText = totalReturnRate.toFixed(2) + '%';
+            // 含息總報酬率
+            document.getElementById('totalReturnRate').innerText = totalReturnRate.toFixed(2) + '%';
 
-            if(targetName !== 'all') {
-                document.getElementById('indivDivTotal').innerText = '$' + Math.round(k.div).toLocaleString();
-                const paybackRate = k.cap > 0 ? ((k.div / k.cap) * 100).toFixed(2) : 0;
-                document.getElementById('indivPaybackRate').innerText = paybackRate + '%';
-            }
-            return k;
-        }
+            if(targetName !== 'all') {
+                document.getElementById('indivDivTotal').innerText = '$' + Math.round(k.div).toLocaleString();
+                const paybackRate = k.cap > 0 ? ((k.div / k.cap) * 100).toFixed(2) : 0;
+                document.getElementById('indivPaybackRate').innerText = paybackRate + '%';
+            }
+            return k;
+        }
 
-        document.getElementById('clientSelector').addEventListener('change', e => {
-            const name = e.target.value;
-            if(name === 'none') { backToOverall(); return; }
-            renderDetails(name);
-        });
+        document.getElementById('clientSelector').addEventListener('change', e => {
+            const name = e.target.value;
+            if(name === 'none') { backToOverall(); return; }
+            renderDetails(name);
+        });
 
-        document.getElementById('toggleAllBtn').addEventListener('click', function() {
-            isDetailsVisible = !isDetailsVisible;
-            if (isDetailsVisible) {
-                renderDetails('all');
-                this.innerText = "收起全體名細";
-                this.classList.replace('bg-slate-100', 'bg-slate-800');
-                this.classList.add('text-white');
-            } else {
-                document.getElementById('tableWrapper').classList.add('hidden');
-                this.innerText = "展開全體名細";
-                this.classList.replace('bg-slate-800', 'bg-slate-100');
-                this.classList.remove('text-white');
-            }
-        });
+        document.getElementById('toggleAllBtn').addEventListener('click', function() {
+            isDetailsVisible = !isDetailsVisible;
+            if (isDetailsVisible) {
+                renderDetails('all');
+                this.innerText = "收起全體名細";
+                this.classList.replace('bg-slate-100', 'bg-slate-800');
+                this.classList.add('text-white');
+            } else {
+                document.getElementById('tableWrapper').classList.add('hidden');
+                this.innerText = "展開全體名細";
+                this.classList.replace('bg-slate-800', 'bg-slate-100');
+                this.classList.remove('text-white');
+            }
+        });
 
-        function renderDetails(name) {
-            const isAll = name === 'all';
-            const filtered = isAll ? rawData : rawData.filter(d => d['客戶名稱'] === name);
-            const tbody = document.getElementById('dataTableBody');
-            
-            calculateAndDisplayKpi(name);
-            
-            document.getElementById('individualAnalysis').classList.toggle('hidden', isAll);
-            document.getElementById('tableWrapper').classList.remove('hidden');
-            
-            tbody.innerHTML = '';
-            filtered.forEach(r => {
-                const res = calcRow(r);
-                tbody.innerHTML += `
-                    <div class="p-5 flex justify-between items-center hover:bg-slate-50 transition-colors">
-                        <div>
-                            <p class="font-bold text-slate-800 text-sm">${r['客戶名稱']}</p>
-                            <p class="text-[10px] text-slate-400 uppercase tracking-tighter">${r['保單號碼']} | ${r['基金標的']}</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="font-black text-sm ${res.totalTwd >= 0 ? 'text-emerald-500' : 'text-rose-500'}">$${Math.round(res.totalTwd).toLocaleString()}</p>
-                            <p class="text-[10px] text-slate-400">含息總損益</p>
-                        </div>
-                    </div>`;
-            });
-        }
-    </script>
+        function renderDetails(name) {
+            const isAll = name === 'all';
+            const filtered = isAll ? rawData : rawData.filter(d => d['客戶名稱'] === name);
+            const tbody = document.getElementById('dataTableBody');
+            
+            calculateAndDisplayKpi(name);
+            
+            document.getElementById('individualAnalysis').classList.toggle('hidden', isAll);
+            document.getElementById('tableWrapper').classList.remove('hidden');
+            
+            tbody.innerHTML = '';
+            filtered.forEach(r => {
+                const res = calcRow(r);
+                tbody.innerHTML += `
+                    <div class="p-5 flex justify-between items-center hover:bg-slate-50 transition-colors">
+                        <div>
+                            <p class="font-bold text-slate-800 text-sm">${r['客戶名稱']}</p>
+                            <p class="text-[10px] text-slate-400 uppercase tracking-tighter">${r['保單號碼']} | ${r['基金標的']}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-black text-sm ${res.totalTwd >= 0 ? 'text-emerald-500' : 'text-rose-500'}">$${Math.round(res.totalTwd).toLocaleString()}</p>
+                            <p class="text-[10px] text-slate-400">含息總損益</p>
+                        </div>
+                    </div>`;
+            });
+        }
+    </script>
 </body>
 </html>
