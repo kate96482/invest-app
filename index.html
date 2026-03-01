@@ -6,215 +6,180 @@
     <title>保單理財小管家</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
-        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; }
-        #loadingOverlay { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); z-index: 9999; }
-        .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        
+        :root {
+            --primary-dark: #0f172a;
+            --accent-indigo: #6366f1;
+        }
+
+        body { 
+            font-family: 'Noto Sans TC', sans-serif; 
+            background-color: #f1f5f9; 
+            color: #1e293b;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* 優化載入動畫 */
+        #loadingOverlay { 
+            backdrop-filter: blur(12px); 
+            -webkit-backdrop-filter: blur(12px); 
+            z-index: 9999; 
+            background-color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* 網格佈局 */
+        .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
         .kpi-card-main { grid-column: span 2; }
-        .soft-shadow { box-shadow: 0 8px 30px rgba(0,0,0,0.04); }
-        .gold-gradient { background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); }
 
-        /* 1:1 正方形畫布 (隱藏，僅截圖用) */
-        #renderCanvas {
-            position: absolute; left: -9999px; top: 0;
-            width: 500px; height: 500px;
-            background: white; padding: 40px;
-            display: flex; flex-direction: column; justify-content: space-between;
-            box-sizing: border-box;
-            z-index: -1;
+        /* 卡片設計 */
+        .glass-card {
+            background: white;
+            border-radius: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s ease;
         }
 
-        /* 修正預覽跑版：專業的 1:1 卡片外框 */
-        #previewCard {
-            width: 100%;
-            max-width: 380px; /* 限制最大寬度，避免大螢幕跑版 */
-            aspect-ratio: 1 / 1; /* 強制 1:1 正方形 */
-            border-radius: 24px;
-            overflow: hidden;
-            box-shadow: 0 30px 70px rgba(0,0,0,0.5); /* 深度陰影 */
-            border: 4px solid rgba(255,255,255,0.1); /* 白色邊框 */
-            background-color: #1e293b; /* 預設背景，防止圖片載入前的閃爍 */
+        .gold-gradient { 
+            background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); 
         }
-        #previewCard img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain; /* 確保整張圖片都顯示在框架內，不裁剪 */
-            display: block;
+
+        /* 隱藏原生滾動條但保持功能 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* 輸入框優化 */
+        select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 1.25rem;
         }
+
+        .value-up { color: #10b981; }
+        .value-down { color: #f43f5e; }
     </style>
 </head>
-<body class="pb-10">
+<body class="pb-12">
 
-    <div id="loadingOverlay" class="hidden fixed inset-0 bg-white/60 flex flex-col items-center justify-center">
-        <div class="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-        <p class="mt-4 text-indigo-600 font-bold">處理中...</p>
+    <div id="loadingOverlay" class="hidden fixed inset-0 flex flex-col items-center justify-center">
+        <div class="relative">
+            <div class="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+        </div>
+        <p class="mt-4 text-indigo-700 font-bold tracking-wider">大數據分析中...</p>
     </div>
 
-    <div class="max-w-md mx-auto px-4 py-6" id="captureArea">
-        <header id="mainHeader" class="mb-6 flex justify-between items-center">
+    <div class="max-w-md mx-auto px-5 py-8">
+        <header class="mb-8 flex justify-between items-start">
             <div>
-                <h1 class="text-2xl font-black text-slate-800">資產分析助手</h1>
-                <p class="text-slate-400 text-xs">市場數據自動同步已開啟</p>
+                <h1 class="text-3xl font-black text-slate-900 tracking-tight">資產分析助手</h1>
+                <p class="text-slate-500 text-sm font-medium mt-1">即時市場數據同步中</p>
             </div>
-            <div id="headerRate" class="bg-indigo-50 px-3 py-1 rounded-full text-right border border-indigo-100 shadow-sm">
-                <span class="text-[10px] text-indigo-400 font-bold block leading-none">USD/TWD</span>
-                <span id="rateDisplay" class="text-xs font-black text-indigo-600">連線中</span>
+            <div class="bg-white px-4 py-2 rounded-2xl shadow-sm border border-slate-100 text-right">
+                <span class="text-[10px] text-slate-400 font-black block leading-none uppercase mb-1">USD/TWD</span>
+                <span id="rateDisplay" class="text-sm font-black text-indigo-600">32.50</span>
             </div>
         </header>
 
-        <div id="uploadArea" class="bg-white p-10 rounded-[2.5rem] soft-shadow border-2 border-dashed border-slate-200 text-center mb-6">
-            <div class="text-5xl mb-4">📥</div>
-            <h3 class="font-bold text-slate-700 text-lg">請導入 Excel 檔案</h3>
-            <p class="text-slate-400 text-sm mb-8">開始您的專業分析</p>
+        <div id="uploadArea" class="bg-white p-12 rounded-[3rem] border-2 border-dashed border-slate-200 text-center mb-6 shadow-sm">
+            <div class="w-20 h-20 bg-indigo-50 rounded-3xl flex items-center justify-center mx-auto mb-6 text-4xl">📥</div>
+            <h3 class="font-bold text-slate-800 text-xl">導入分析檔案</h3>
+            <p class="text-slate-400 text-sm mt-2 mb-8">請選擇包含客戶資產的 Excel</p>
             <input type="file" id="upload" accept=".xlsx, .xls" class="hidden"/>
-            <button onclick="document.getElementById('upload').click()" class="bg-slate-900 text-white w-full py-4 rounded-2xl font-bold shadow-xl active:scale-95 transition-transform">選擇檔案</button>
+            <button onclick="document.getElementById('upload').click()" class="bg-slate-900 text-white w-full py-4 rounded-2xl font-black shadow-xl active:scale-95 transition-all">
+                選擇檔案
+            </button>
         </div>
 
-        <div id="dashboard" class="hidden space-y-4">
-            <div id="navButtons" class="flex justify-between items-center">
-                <button onclick="backToOverall()" class="text-xs font-bold text-indigo-600 bg-indigo-50 px-4 py-2 rounded-full flex items-center gap-1 hover:bg-indigo-600 hover:text-white transition-all shadow-sm">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 15l-3-3m0 0l3-3m-3 3h8M3 12a9 9 0 1118 0 9 9 0 01-18 0z"></path></svg>
-                    回到總體分析
+        <div id="dashboard" class="hidden space-y-6">
+            
+            <div class="flex justify-between items-center px-1">
+                <button onclick="backToOverall()" class="text-xs font-bold text-slate-500 bg-white border border-slate-100 px-4 py-2 rounded-full flex items-center gap-2 hover:bg-slate-50 transition-all">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                    回總覽
                 </button>
-                <button onclick="location.reload()" class="text-xs font-bold text-slate-400 flex items-center gap-1 hover:text-rose-500 transition-colors">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                    重新上傳
-                </button>
+                <button onclick="location.reload()" class="text-xs font-bold text-slate-400 hover:text-rose-500">重新上傳</button>
             </div>
 
             <div id="kpiSection" class="kpi-grid">
-                <div class="kpi-card-main bg-slate-900 p-6 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden transition-all duration-500">
+                <div class="kpi-card-main bg-slate-900 p-8 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden">
                     <div class="relative z-10">
-                        <p id="kpiTitle" class="text-xs font-bold opacity-50 mb-1 tracking-widest uppercase">總投資市值</p>
-                        <p id="kpi1" class="text-3xl font-black tracking-tight">$0</p>
+                        <p class="text-[10px] font-black opacity-40 mb-2 tracking-[0.2em] uppercase">Total Market Value</p>
+                        <p id="kpi1" class="text-4xl font-black tracking-tighter">$0</p>
                     </div>
-                    <div class="absolute -right-4 -bottom-4 text-white/5 text-6xl font-black italic uppercase" id="kpiLabelBg">Asset</div>
+                    <div class="absolute -right-6 -bottom-6 text-white/5 text-8xl font-black italic">ASSET</div>
                 </div>
 
-                <div class="bg-blue-50 p-5 rounded-[2rem] border border-blue-100/50 relative">
-                    <div class="flex justify-between items-start">
-                        <p class="text-[10px] font-bold text-blue-400 uppercase mb-1">投入本金</p>
-                        <span id="marketFluctPercent" class="absolute top-4 right-4 text-[9px] font-black leading-none px-1.5 py-0.5 rounded-md hidden"></span>
+                <div class="glass-card p-6 relative">
+                    <div class="flex justify-between items-start mb-2">
+                        <p class="text-[11px] font-black text-slate-400 uppercase">投入本金</p>
+                        <span id="marketFluctPercent" class="text-[10px] font-black px-2 py-0.5 rounded-lg hidden"></span>
                     </div>
-                    <p id="kpi2" class="text-lg font-black text-blue-900">$0</p>
+                    <p id="kpi2" class="text-xl font-black text-slate-800">$0</p>
+                    <p id="marketFluctLabel" class="text-[9px] font-bold text-slate-300 mt-1 hidden">市場波動幅度</p>
                 </div>
 
-                <div class="bg-amber-50 p-5 rounded-[2rem] border border-amber-100/50">
-                    <p class="text-[10px] font-bold text-amber-500 uppercase mb-1">累積配息</p>
-                    <p id="kpi3" class="text-lg font-black text-amber-900">$0</p>
+                <div class="glass-card p-6">
+                    <p class="text-[11px] font-black text-slate-400 uppercase mb-2">累積配息</p>
+                    <p id="kpi3" class="text-xl font-black text-amber-600">$0</p>
                 </div>
 
-                <div id="monthlyDivCard" class="bg-indigo-50 p-5 rounded-[2rem] border border-indigo-100/50 relative">
-                    <div class="flex justify-between items-start mb-1">
-                        <p class="text-[10px] font-bold text-indigo-500 uppercase">預估月配息</p>
-                        <span id="annualDivYield" class="hidden text-[9px] font-black bg-indigo-100/50 px-1.5 py-0.5 rounded-md text-indigo-600"></span>
+                <div class="glass-card p-6">
+                    <div class="flex justify-between items-start mb-2">
+                        <p class="text-[11px] font-black text-slate-400 uppercase">預估月配息</p>
+                        <span id="annualDivYield" class="hidden text-[9px] font-black bg-indigo-50 text-indigo-500 px-1.5 py-0.5 rounded-md"></span>
                     </div>
-                    <p id="kpi4" class="text-lg font-black text-indigo-900">$0</p>
+                    <p id="kpi4" class="text-xl font-black text-indigo-600">$0</p>
                 </div>
 
-                <div class="bg-emerald-50 p-5 rounded-[2rem] border border-emerald-100/50">
-                    <div class="flex justify-between items-center mb-1">
-                        <p class="text-[10px] font-bold text-emerald-600 uppercase">含息總報酬</p>
-                        <span id="totalReturnRate" class="hidden text-[10px] font-black text-emerald-700"></span>
-                    </div>
-                    <p id="kpi5" class="text-lg font-black text-emerald-900">$0</p>
-                </div>
-            </div>
-
-            <div class="bg-white p-6 rounded-[2.5rem] soft-shadow" id="analysisBox">
-                <div id="selectorArea" class="flex items-center justify-between mb-4">
-                    <label class="text-sm font-black text-slate-700">選擇分析對象</label>
-                    <button id="toggleAllBtn" class="text-xs bg-slate-100 px-3 py-1.5 rounded-full font-bold text-slate-500 hover:bg-slate-800 hover:text-white transition-all">展開全體名細</button>
-                </div>
-                <select id="clientSelector" class="w-full bg-slate-50 border-0 p-4 rounded-2xl font-bold text-slate-800 mb-6 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"></select>
-                
-                <div id="individualAnalysis" class="hidden space-y-4">
+                <div class="glass-card p-6">
                     <div class="flex justify-between items-center mb-2">
-                        <h3 class="font-black text-slate-800 text-sm">長期配息增長趨勢</h3>
-                        <span id="indivDivTotal" class="text-amber-500 font-black text-lg">$0</span>
+                        <p class="text-[11px] font-black text-slate-400 uppercase">含息總報酬</p>
+                        <span id="totalReturnRate" class="hidden text-[10px] font-black"></span>
                     </div>
-                    <div class="h-32 w-full bg-slate-50 rounded-2xl flex items-end p-2 gap-1.5 mb-4">
-                        <div class="flex-1 bg-amber-100 rounded-t-lg" style="height: 20%"></div>
-                        <div class="flex-1 bg-amber-200 rounded-t-lg" style="height: 35%"></div>
-                        <div class="flex-1 bg-amber-300 rounded-t-lg" style="height: 55%"></div>
-                        <div class="flex-1 bg-amber-400 rounded-t-lg" style="height: 75%"></div>
-                        <div class="flex-1 gold-gradient rounded-t-lg shadow-lg shadow-amber-200" style="height: 100%"></div>
+                    <p id="kpi5" class="text-xl font-black text-emerald-600">$0</p>
+                </div>
+            </div>
+
+            <div class="bg-white p-7 rounded-[2.5rem] shadow-sm border border-slate-100">
+                <div class="flex items-center justify-between mb-5 px-1">
+                    <label class="text-sm font-black text-slate-800 tracking-wide">分析對象</label>
+                    <button id="toggleAllBtn" class="text-[11px] bg-slate-100 px-4 py-2 rounded-xl font-black text-slate-500 hover:bg-slate-900 hover:text-white transition-all">查看所有名細</button>
+                </div>
+                
+                <select id="clientSelector" class="w-full bg-slate-50 border-none p-4 rounded-2xl font-black text-slate-700 mb-6 focus:ring-2 focus:ring-indigo-500 transition-all"></select>
+                
+                <div id="individualAnalysis" class="hidden animate-in fade-in slide-in-from-bottom-2">
+                    <div class="flex justify-between items-end mb-4 px-1">
+                        <div>
+                            <h3 class="font-black text-slate-800 text-sm">配息回本進度</h3>
+                            <p class="text-[11px] text-slate-400 font-bold mt-1">累積領取：<span id="indivDivTotal" class="text-amber-600 font-black">$0</span></p>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-[10px] text-slate-300 font-black block uppercase">Payback Progress</span>
+                            <span id="indivPaybackRate" class="text-2xl font-black text-amber-500">0%</span>
+                        </div>
                     </div>
-                    <div class="p-4 bg-amber-50 rounded-2xl border border-amber-100 text-center mb-4">
-                        <p class="text-[11px] text-amber-800 font-bold">
-                            累積回本率已達：<span id="indivPaybackRate" class="text-amber-600 font-black text-base">0%</span>
-                        </p>
+                    
+                    <div class="h-24 w-full bg-slate-50 rounded-2xl flex items-end p-3 gap-2 mb-2">
+                        <div class="flex-1 bg-amber-100 rounded-lg transition-all duration-700" style="height: 15%"></div>
+                        <div class="flex-1 bg-amber-200 rounded-lg transition-all duration-700" style="height: 30%"></div>
+                        <div class="flex-1 bg-amber-300 rounded-lg transition-all duration-700" style="height: 50%"></div>
+                        <div class="flex-1 bg-amber-400 rounded-lg transition-all duration-700" style="height: 70%"></div>
+                        <div class="flex-1 gold-gradient rounded-lg shadow-lg shadow-amber-200 transition-all duration-1000" style="height: 95%"></div>
                     </div>
-                    <button id="exportImgBtn" class="w-full py-4 bg-slate-800 text-white rounded-xl text-xs font-bold shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                        生成 1:1 專屬分析圖卡
-                    </button>
                 </div>
             </div>
 
-            <div id="tableWrapper" class="hidden bg-white rounded-[2.5rem] soft-shadow overflow-hidden">
-                <div class="p-5 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
-                    <span class="font-black text-slate-700 text-sm">數據名細表</span>
-                    <span class="text-[10px] font-bold text-slate-400">單位：TWD (Live數據)</span>
+            <div id="tableWrapper" class="hidden bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
+                <div class="px-6 py-5 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center">
+                    <span class="font-black text-slate-700 text-sm">詳細資產表</span>
+                    <span class="text-[10px] font-bold text-slate-400">幣別：TWD</span>
                 </div>
-                <div id="dataTableBody" class="divide-y divide-slate-50"></div>
-            </div>
-        </div>
-    </div>
-
-    <div id="renderCanvas">
-        <div style="background:#0f172a; padding:30px; border-radius:35px; color:white; position:relative; overflow:hidden;">
-            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                <div>
-                    <p style="margin:0; font-size:13px; opacity:0.6; font-weight:700; letter-spacing: 0.5px;">最新投資市值 (TWD)</p>
-                    <p id="r-kpi1" style="margin:10px 0 0 0; font-size:48px; font-weight:900; line-height:1;">$0</p>
-                </div>
-                <div id="r-yield-tag" style="background:rgba(99,102,241,0.2); border:1px solid rgba(99,102,241,0.3); padding:4px 10px; border-radius:10px; font-size:11px; font-weight:900; color:#818cf8;">
-                    年化配息率 0%
-                </div>
-            </div>
-            <div style="position:absolute; right:-10px; bottom:-10px; font-size:65px; font-weight:900; font-style:italic; color:rgba(255,255,255,0.05);">ASSET</div>
-        </div>
-
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
-            <div style="background:#eff6ff; padding:22px; border-radius:28px; border:1px solid #dbeafe; position:relative;">
-                <p style="margin:0; font-size:12px; color:#3b82f6; font-weight:800;">投入本金 / 市場波動</p>
-                <p id="r-kpi2" style="margin:8px 0 0 0; font-size:22px; font-weight:900; color:#1e3a8a;">$0</p>
-                <span id="r-fluct" style="position:absolute; top:20px; right:20px; font-size:11px; font-weight:900; padding:3px 8px; border-radius:8px;"></span>
-            </div>
-            <div style="background:#fffbeb; padding:22px; border-radius:28px; border:1px solid #fef3c7;">
-                <p style="margin:0; font-size:12px; color:#f59e0b; font-weight:800;">累積配息</p>
-                <p id="r-kpi3" style="margin:8px 0 0 0; font-size:22px; font-weight:900; color:#78350f;">$0</p>
-            </div>
-            <div style="background:#f5f3ff; padding:22px; border-radius:28px; border:1px solid #ede9fe;">
-                <p style="margin:0; font-size:12px; color:#6366f1; font-weight:800;">預估月配息</p>
-                <p id="r-kpi4" style="margin:8px 0 0 0; font-size:22px; font-weight:900; color:#312e81;">$0</p>
-            </div>
-            <div style="background:#ecfdf5; padding:22px; border-radius:28px; border:1px solid #d1fae5;">
-                <p style="margin:0; font-size:12px; color:#10b981; font-weight:800;">含息總報酬</p>
-                <p id="r-kpi5" style="margin:8px 0 0 0; font-size:22px; font-weight:900; color:#064e3b;">$0</p>
-            </div>
-        </div>
-
-        <div style="background:#f8fafc; padding:25px; border-radius:35px; border:1px solid #f1f5f9;">
-            <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:15px;">
-                <div>
-                    <p style="margin:0; font-size:14px; font-weight:900; color:#1e293b;">配息回本趨勢分析</p>
-                    <p id="r-div-total" style="margin:2px 0 0 0; font-size:12px; color:#94a3b8; font-weight:700;">累積配息領取 $0</p>
-                </div>
-                <div style="text-align:right;">
-                    <p style="margin:0; font-size:10px; color:#d97706; font-weight:900; text-transform:uppercase;">Payback Rate</p>
-                    <p id="r-payback" style="margin:0; font-size:28px; font-weight:900; color:#d97706; line-height:1;">0%</p>
-                </div>
-            </div>
-            <div style="height:90px; width:100%; display:flex; align-items:flex-end; gap:10px; box-sizing:border-box;">
-                <div style="flex:1; background:#fef3c7; border-radius:10px; height:20%;"></div>
-                <div style="flex:1; background:#fde68a; border-radius:10px; height:40%;"></div>
-                <div style="flex:1; background:#fcd34d; border-radius:10px; height:60%;"></div>
-                <div style="flex:1; background:#fbbf24; border-radius:10px; height:80%;"></div>
-                <div style="flex:1; background:linear-gradient(to bottom, #fbbf24, #d97706); border-radius:10px; height:100%; box-shadow: 0 5px 20px rgba(217,119,6,0.3);"></div>
+                <div id="dataTableBody" class="divide-y divide-slate-50 max-h-96 overflow-y-auto no-scrollbar"></div>
             </div>
         </div>
     </div>
@@ -224,6 +189,7 @@
         let currentUsdRate = 32.50; 
         let isDetailsVisible = false;
 
+        // 外部數據同步
         const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQHKETau10x9H1XCGiO-nDUdlgB7eMIYMTi25y5-ZYiUECEDnNHN22CxxVvitdmTLUZAHSVBrZCbK2P/pub?gid=0&single=true&output=csv"; 
 
         const FUND_PARAMS = { 
@@ -232,7 +198,6 @@
         };
 
         async function syncMarketData() {
-            if (!SHEET_CSV_URL) return;
             try {
                 const response = await fetch(SHEET_CSV_URL);
                 const text = await response.text();
@@ -250,6 +215,7 @@
             }
         }
 
+        // 檔案處理
         document.getElementById('upload').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -260,7 +226,7 @@
                 rawData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
                 syncMarketData().then(() => {
                     initDashboard();
-                    setTimeout(() => document.getElementById('loadingOverlay').classList.add('hidden'), 500);
+                    setTimeout(() => document.getElementById('loadingOverlay').classList.add('hidden'), 800);
                 });
             };
             reader.readAsArrayBuffer(file);
@@ -276,24 +242,24 @@
             const mvTwd = units * fund.nav * currentUsdRate;
             const monthDiv = units * fund.divRate * currentUsdRate;
 
-            let divTwd, totalTwd, capitalTwd;
+            let divTwd, capitalTwd, totalProfitTwd;
             if (currency === '美元' || currency === 'USD') {
                 divTwd = cumDiv * currentUsdRate;
                 capitalTwd = capital * currentUsdRate;
-                totalTwd = (cumDiv + (units * fund.nav) - capital) * currentUsdRate;
+                totalProfitTwd = (cumDiv + (units * fund.nav) - capital) * currentUsdRate;
             } else {
                 divTwd = cumDiv; 
                 capitalTwd = capital;
-                totalTwd = (cumDiv + mvTwd) - capital;
+                totalProfitTwd = (cumDiv + mvTwd) - capital;
             }
-            return { mvTwd, divTwd, totalTwd, monthDiv, capitalTwd };
+            return { mvTwd, divTwd, totalProfitTwd, monthDiv, capitalTwd };
         }
 
         function initDashboard() {
             document.getElementById('dashboard').classList.remove('hidden');
             document.getElementById('uploadArea').classList.add('hidden');
             const selector = document.getElementById('clientSelector');
-            selector.innerHTML = '<option value="none">--- 請選擇客戶 ---</option>';
+            selector.innerHTML = '<option value="none">--- 請選擇分析客戶 ---</option>';
             [...new Set(rawData.map(i => i['客戶名稱']))].forEach(c => {
                 const opt = document.createElement('option'); opt.value = c; opt.innerText = c; selector.appendChild(opt);
             });
@@ -312,9 +278,10 @@
             const isAll = targetName === 'all';
             const filtered = isAll ? rawData : rawData.filter(d => d['客戶名稱'] === targetName);
             let k = { mv: 0, div: 0, month: 0, total: 0, cap: 0 };
+            
             filtered.forEach(r => {
                 const res = calcRow(r);
-                k.mv += res.mvTwd; k.div += res.divTwd; k.month += res.monthDiv; k.total += res.totalTwd; k.cap += res.capitalTwd;
+                k.mv += res.mvTwd; k.div += res.divTwd; k.month += res.monthDiv; k.total += res.totalProfitTwd; k.cap += res.capitalTwd;
             });
 
             const fluctAmt = k.mv - k.cap;
@@ -323,7 +290,7 @@
             const annualYield = k.mv > 0 ? (k.month * 12 / k.mv) * 100 : 0;
             const payback = k.cap > 0 ? ((k.div / k.cap) * 100).toFixed(2) : "0.00";
 
-            // 主介面 KPI
+            // KPI 更新
             document.getElementById('kpi1').innerText = '$' + Math.round(k.mv).toLocaleString();
             document.getElementById('kpi2').innerText = '$' + Math.round(k.cap).toLocaleString();
             document.getElementById('kpi3').innerText = '$' + Math.round(k.div).toLocaleString();
@@ -331,41 +298,28 @@
             document.getElementById('kpi5').innerText = '$' + Math.round(k.total).toLocaleString();
             
             const pctEl = document.getElementById('marketFluctPercent');
+            const pctLabel = document.getElementById('marketFluctLabel');
             const yieldEl = document.getElementById('annualDivYield');
             const retEl = document.getElementById('totalReturnRate');
 
             if(isAll) {
                 pctEl.classList.add('hidden');
+                pctLabel.classList.add('hidden');
                 yieldEl.classList.add('hidden');
                 retEl.classList.add('hidden');
             } else {
                 pctEl.classList.remove('hidden');
+                pctLabel.classList.remove('hidden');
                 pctEl.innerText = (fluctPct >= 0 ? '+' : '') + fluctPct.toFixed(2) + '%';
-                pctEl.className = `absolute top-4 right-4 text-[9px] font-black px-1.5 py-0.5 rounded-md ${fluctPct >= 0 ? 'text-emerald-600 bg-emerald-100/50' : 'text-rose-600 bg-rose-100/50'}`;
+                pctEl.className = `text-[10px] font-black px-2 py-0.5 rounded-lg ${fluctPct >= 0 ? 'text-emerald-600 bg-emerald-50' : 'text-rose-600 bg-rose-50'}`;
                 
                 yieldEl.classList.remove('hidden');
-                yieldEl.innerText = '年化配息率 ' + annualYield.toFixed(2) + '%';
+                yieldEl.innerText = '年化 ' + annualYield.toFixed(2) + '%';
 
                 retEl.classList.remove('hidden');
                 retEl.innerText = (totalReturnRate >= 0 ? '+' : '') + totalReturnRate.toFixed(2) + '%';
+                retEl.className = `text-[10px] font-black ${totalReturnRate >= 0 ? 'text-emerald-500' : 'text-rose-500'}`;
 
-                // --- 這裡是修正核心：同步更新輸出圖 (#renderCanvas) 的所有數據 ---
-                // 保證投資市值的數字會呈現
-                document.getElementById('r-kpi1').innerText = '$' + Math.round(k.mv).toLocaleString();
-                document.getElementById('r-kpi2').innerText = '$' + Math.round(k.cap).toLocaleString();
-                document.getElementById('r-kpi3').innerText = '$' + Math.round(k.div).toLocaleString();
-                document.getElementById('r-kpi4').innerText = '$' + Math.round(k.month).toLocaleString();
-                document.getElementById('r-kpi5').innerText = '$' + Math.round(k.total).toLocaleString();
-                document.getElementById('r-payback').innerText = payback + '%';
-                document.getElementById('r-div-total').innerText = '累積配息領取 $' + Math.round(k.div).toLocaleString();
-                document.getElementById('r-yield-tag').innerText = '年化配息率 ' + annualYield.toFixed(2) + '%';
-                
-                const rFluct = document.getElementById('r-fluct');
-                rFluct.innerText = (fluctPct >= 0 ? '+' : '') + fluctPct.toFixed(2) + '%';
-                rFluct.style.background = fluctPct >= 0 ? '#d1fae5' : '#fee2e2';
-                rFluct.style.color = fluctPct >= 0 ? '#059669' : '#dc2626';
-
-                // 更新手機趨勢圖顯示的文字
                 document.getElementById('indivDivTotal').innerText = '$' + Math.round(k.div).toLocaleString();
                 document.getElementById('indivPaybackRate').innerText = payback + '%';
             }
@@ -381,13 +335,13 @@
             isDetailsVisible = !isDetailsVisible;
             if (isDetailsVisible) {
                 renderDetails('all');
-                this.innerText = "收起全體名細";
-                this.classList.replace('bg-slate-100', 'bg-slate-800');
+                this.innerText = "收起詳細名細";
+                this.classList.replace('bg-slate-100', 'bg-slate-900');
                 this.classList.add('text-white');
             } else {
                 document.getElementById('tableWrapper').classList.add('hidden');
-                this.innerText = "展開全體名細";
-                this.classList.replace('bg-slate-800', 'bg-slate-100');
+                this.innerText = "查看所有名細";
+                this.classList.replace('bg-slate-900', 'bg-slate-100');
                 this.classList.remove('text-white');
             }
         });
@@ -396,63 +350,29 @@
             const isAll = name === 'all';
             const filtered = isAll ? rawData : rawData.filter(d => d['客戶名稱'] === name);
             const tbody = document.getElementById('dataTableBody');
+            
             calculateAndDisplayKpi(name);
             document.getElementById('individualAnalysis').classList.toggle('hidden', isAll);
             document.getElementById('tableWrapper').classList.remove('hidden');
+            
             tbody.innerHTML = '';
             filtered.forEach(r => {
                 const res = calcRow(r);
                 tbody.innerHTML += `
-                    <div class="p-5 flex justify-between items-center hover:bg-slate-50 transition-colors">
+                    <div class="px-6 py-5 flex justify-between items-center hover:bg-slate-50 transition-colors">
                         <div>
-                            <p class="font-bold text-slate-800 text-sm">${r['客戶名稱']}</p>
-                            <p class="text-[10px] text-slate-400 uppercase tracking-tighter">${r['保單號碼']} | ${r['基金標的']}</p>
+                            <p class="font-black text-slate-800 text-sm">${r['客戶名稱']}</p>
+                            <p class="text-[10px] text-slate-400 font-bold mt-0.5 tracking-tight uppercase">${r['保單號碼']} · ${r['基金標的']}</p>
                         </div>
                         <div class="text-right">
-                            <p class="font-black text-sm ${res.totalTwd >= 0 ? 'text-emerald-500' : 'text-rose-500'}">$${Math.round(res.totalTwd).toLocaleString()}</p>
-                            <p class="text-[10px] text-slate-400">含息總損益</p>
+                            <p class="font-black text-sm ${res.totalProfitTwd >= 0 ? 'text-emerald-500' : 'text-rose-500'}">
+                                ${res.totalProfitTwd >= 0 ? '+' : ''}${Math.round(res.totalProfitTwd).toLocaleString()}
+                            </p>
+                            <p class="text-[9px] text-slate-400 font-bold uppercase">Net Profit</p>
                         </div>
                     </div>`;
             });
         }
-
-        // 截圖邏輯
-        document.getElementById('exportImgBtn').addEventListener('click', async function() {
-            const overlay = document.getElementById('loadingOverlay');
-            overlay.classList.remove('hidden');
-
-            try {
-                const canvas = await html2canvas(document.getElementById('renderCanvas'), {
-                    scale: 3, 
-                    width: 500,
-                    height: 500,
-                    backgroundColor: "#ffffff",
-                    logging: false,
-                    useCORS: true,
-                    allowTaint: true
-                });
-
-                const imgData = canvas.toDataURL("image/png");
-                const preview = document.createElement('div');
-                preview.className = "fixed inset-0 bg-black/95 z-[10000] flex flex-col items-center justify-center p-6";
-                preview.innerHTML = `
-                    <div id="previewCard">
-                        <img src="${imgData}" alt="1:1 專屬分析圖卡">
-                    </div>
-                    <div class="text-center mt-8">
-                        <p class="text-white font-black text-lg mb-2">1:1 專屬分析圖卡</p>
-                        <p class="text-white/50 text-xs mb-10">請長按圖片儲存，或直接分享給客戶</p>
-                        <button onclick="this.parentElement.parentElement.remove()" class="bg-indigo-600 text-white px-12 py-4 rounded-2xl font-black shadow-lg shadow-indigo-500/20 active:scale-95 transition-all">關閉預覽</button>
-                    </div>
-                `;
-                document.body.appendChild(preview);
-            } catch (err) {
-                console.error(err);
-                alert("圖片生成失敗，請再試一次");
-            } finally {
-                overlay.classList.add('hidden');
-            }
-        });
     </script>
 </body>
 </html>
