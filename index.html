@@ -67,10 +67,7 @@
                 <div class="bg-blue-50 p-5 rounded-[2rem] border border-blue-100/50 relative">
                     <div class="flex justify-between items-start">
                         <p class="text-[10px] font-bold text-blue-400 uppercase mb-1">投入本金</p>
-                        <div class="flex flex-col items-end">
-                            <span id="marketFluctPercent" class="text-[9px] font-black leading-none mb-0.5"></span>
-                            <span id="marketFluct" class="text-[9px] font-bold opacity-80 leading-none"></span>
-                        </div>
+                        <span id="marketFluctPercent" class="hidden text-[9px] font-black leading-none px-1.5 py-0.5 rounded-md"></span>
                     </div>
                     <p id="kpi2" class="text-lg font-black text-blue-900">$0</p>
                 </div>
@@ -83,7 +80,7 @@
                 <div id="monthlyDivCard" class="bg-indigo-50 p-5 rounded-[2rem] border border-indigo-100/50">
                     <div class="flex justify-between items-start mb-1">
                         <p class="text-[10px] font-bold text-indigo-500 uppercase">預估月配息</p>
-                        <span id="annualDivYield" class="text-[9px] font-black text-indigo-600 bg-indigo-100/50 px-1.5 py-0.5 rounded-md"></span>
+                        <span id="annualDivYield" class="hidden text-[9px] font-black bg-indigo-100/50 px-1.5 py-0.5 rounded-md"></span>
                     </div>
                     <p id="kpi4" class="text-lg font-black text-indigo-900">$0</p>
                 </div>
@@ -91,7 +88,7 @@
                 <div class="bg-emerald-50 p-5 rounded-[2rem] border border-emerald-100/50">
                     <div class="flex justify-between items-center mb-1">
                         <p class="text-[10px] font-bold text-emerald-600 uppercase">含息總報酬</p>
-                        <span id="totalReturnRate" class="text-[10px] font-black text-emerald-700"></span>
+                        <span id="totalReturnRate" class="hidden text-[10px] font-black text-emerald-700"></span>
                     </div>
                     <p id="kpi5" class="text-lg font-black text-emerald-900">$0</p>
                 </div>
@@ -162,12 +159,6 @@
                 document.getElementById('rateDisplay').innerText = currentUsdRate.toFixed(2);
             } catch (e) {
                 console.error("同步失敗:", e);
-                fetch('https://api.exchangerate-api.com/v4/latest/USD')
-                    .then(res => res.json())
-                    .then(data => {
-                        currentUsdRate = data.rates.TWD;
-                        document.getElementById('rateDisplay').innerText = currentUsdRate.toFixed(2);
-                    });
             }
         }
 
@@ -223,58 +214,62 @@
 
         function backToOverall() {
             document.getElementById('clientSelector').value = 'none';
-            document.getElementById('kpiTitle').innerText = "總投資市值";
-            document.getElementById('kpiLabelBg').innerText = "Asset";
             document.getElementById('individualAnalysis').classList.add('hidden');
             calculateAndDisplayKpi('all');
             document.getElementById('tableWrapper').classList.add('hidden');
             isDetailsVisible = false;
-            const btn = document.getElementById('toggleAllBtn');
-            btn.innerText = "展開全體名細";
-            btn.className = "text-xs bg-slate-100 px-3 py-1.5 rounded-full font-bold text-slate-500 hover:bg-slate-800 hover:text-white transition-all";
         }
 
         function calculateAndDisplayKpi(targetName) {
-            const filtered = targetName === 'all' ? rawData : rawData.filter(d => d['客戶名稱'] === targetName);
+            const isAll = targetName === 'all';
+            const filtered = isAll ? rawData : rawData.filter(d => d['客戶名稱'] === targetName);
             let k = { mv: 0, div: 0, month: 0, total: 0, cap: 0 };
             filtered.forEach(r => {
                 const res = calcRow(r);
                 k.mv += res.mvTwd; k.div += res.divTwd; k.month += res.monthDiv; k.total += res.totalTwd; k.cap += res.capitalTwd;
             });
 
-            // 計算波動
             const fluctAmt = k.mv - k.cap;
             const fluctPct = k.cap > 0 ? (fluctAmt / k.cap) * 100 : 0;
             const totalReturnRate = k.cap > 0 ? (((k.div + k.mv) / k.cap) - 1) * 100 : 0;
             const annualYield = k.mv > 0 ? (k.month * 12 / k.mv) * 100 : 0;
 
-            // 更新 UI
+            // 基礎數值更新
             document.getElementById('kpi1').innerText = '$' + Math.round(k.mv).toLocaleString();
             document.getElementById('kpi2').innerText = '$' + Math.round(k.cap).toLocaleString();
             document.getElementById('kpi3').innerText = '$' + Math.round(k.div).toLocaleString();
             document.getElementById('kpi4').innerText = '$' + Math.round(k.month).toLocaleString();
             document.getElementById('kpi5').innerText = '$' + Math.round(k.total).toLocaleString();
             
-            // 投入本金右上角：波動% 與 波動金額
-            const fluctPctEl = document.getElementById('marketFluctPercent');
-            const fluctAmtEl = document.getElementById('marketFluct');
-            fluctPctEl.innerText = (fluctPct >= 0 ? '+' : '') + fluctPct.toFixed(2) + '%';
-            fluctAmtEl.innerText = (fluctAmt >= 0 ? '+' : '') + Math.round(fluctAmt).toLocaleString();
-            fluctPctEl.className = `text-[9px] font-black leading-none mb-0.5 ${fluctPct >= 0 ? 'text-emerald-500' : 'text-rose-500'}`;
-            fluctAmtEl.className = `text-[9px] font-bold opacity-80 leading-none ${fluctAmt >= 0 ? 'text-emerald-500' : 'text-rose-500'}`;
-            
-            // 預估月配息右上角：年化率
-            document.getElementById('annualDivYield').innerText = annualYield.toFixed(2) + '%';
+            // 邏輯控制：總體分析隱藏小字，個別分析顯示小字
+            const pctEl = document.getElementById('marketFluctPercent');
+            const yieldEl = document.getElementById('annualDivYield');
+            const retEl = document.getElementById('totalReturnRate');
 
-            // 含息總報酬率
-            document.getElementById('totalReturnRate').innerText = totalReturnRate.toFixed(2) + '%';
+            if(isAll) {
+                pctEl.classList.add('hidden');
+                yieldEl.classList.add('hidden');
+                retEl.classList.add('hidden');
+            } else {
+                // 市場波動
+                pctEl.classList.remove('hidden');
+                pctEl.innerText = '市場波動 ' + (fluctPct >= 0 ? '+' : '') + fluctPct.toFixed(2) + '%';
+                pctEl.className = `text-[9px] font-black leading-none px-1.5 py-0.5 rounded-md ${fluctPct >= 0 ? 'text-emerald-600 bg-emerald-100/50' : 'text-rose-600 bg-rose-100/50'}`;
+                
+                // 年化配息率
+                yieldEl.classList.remove('hidden');
+                yieldEl.innerText = '年化配息率 ' + annualYield.toFixed(2) + '%';
+                yieldEl.className = 'text-[9px] font-black bg-indigo-100/50 px-1.5 py-0.5 rounded-md text-indigo-600';
 
-            if(targetName !== 'all') {
+                // 含息總報酬率
+                retEl.classList.remove('hidden');
+                retEl.innerText = totalReturnRate.toFixed(2) + '%';
+
+                // 更新個別分析專用區塊
                 document.getElementById('indivDivTotal').innerText = '$' + Math.round(k.div).toLocaleString();
                 const paybackRate = k.cap > 0 ? ((k.div / k.cap) * 100).toFixed(2) : 0;
                 document.getElementById('indivPaybackRate').innerText = paybackRate + '%';
             }
-            return k;
         }
 
         document.getElementById('clientSelector').addEventListener('change', e => {
@@ -302,12 +297,9 @@
             const isAll = name === 'all';
             const filtered = isAll ? rawData : rawData.filter(d => d['客戶名稱'] === name);
             const tbody = document.getElementById('dataTableBody');
-            
             calculateAndDisplayKpi(name);
-            
             document.getElementById('individualAnalysis').classList.toggle('hidden', isAll);
             document.getElementById('tableWrapper').classList.remove('hidden');
-            
             tbody.innerHTML = '';
             filtered.forEach(r => {
                 const res = calcRow(r);
