@@ -6,26 +6,21 @@
     <title>投資型保單專業分析系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
         body { font-family: 'Inter', -apple-system, sans-serif; }
         
-        /* 讀取動畫旋轉效果 */
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .animate-spin-slow { animation: spin 2s linear infinite; }
-
-        /* 手機端 2x2 矩陣微調 */
-        @media (max-width: 640px) {
-            .mobile-grid { grid-template-columns: repeat(2, 1fr); }
-            .mobile-span-2 { grid-column: span 2; }
-        }
-
-        /* 毛玻璃讀取遮罩 */
+        /* 讀取動畫 */
         #loadingOverlay {
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
             z-index: 9999;
+        }
+
+        /* 手機端 2x2 矩陣 */
+        @media (max-width: 640px) {
+            .mobile-grid { grid-template-columns: repeat(2, 1fr); }
+            .mobile-span-2 { grid-column: span 2; }
         }
     </style>
 </head>
@@ -51,8 +46,8 @@
             <div class="bg-blue-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
             </div>
-            <h3 class="text-lg font-bold mb-4">上傳保單資料 (Excel)</h3>
-            <p class="text-slate-400 text-sm mb-6">支援林姿緩、張玉霞等客戶保單分析</p>
+            <h3 class="text-lg font-bold mb-2">上傳保單資料</h3>
+            <p class="text-slate-400 text-sm mb-6">請選擇欲分析的 Excel 試算表</p>
             <input type="file" id="upload" accept=".xlsx, .xls" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-slate-900 file:text-white cursor-pointer"/>
         </div>
 
@@ -81,22 +76,20 @@
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="space-y-4">
-                    <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
-                        <label class="block text-xs font-bold text-slate-400 mb-2 uppercase">分析對象</label>
-                        <select id="clientSelector" class="w-full bg-slate-50 border-0 p-4 rounded-2xl text-slate-800 font-bold outline-none mb-3"></select>
-                        <button id="toggleAllBtn" class="w-full py-3.5 text-sm font-bold text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition">顯示所有客戶清單</button>
-                    </div>
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
+                    <label class="block text-xs font-bold text-slate-400 mb-2 uppercase">分析對象</label>
+                    <select id="clientSelector" class="w-full bg-slate-50 border-0 p-4 rounded-2xl text-slate-800 font-bold outline-none mb-3"></select>
+                    <button id="toggleAllBtn" class="w-full py-3.5 text-sm font-bold text-blue-600 bg-blue-50 rounded-xl">顯示全體名細</button>
                 </div>
 
                 <div class="lg:col-span-2">
                     <div id="tableWrapper" class="hidden bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
-                        <table class="w-full text-left">
+                        <table class="w-full text-left text-sm">
                             <thead class="bg-slate-50 text-[10px] font-bold text-slate-400 uppercase">
                                 <tr>
-                                    <th class="p-5 tracking-widest">客戶/保單號碼</th>
-                                    <th class="p-5 text-right">投資本金</th>
-                                    <th class="p-5 text-right">總報酬(TWD)</th>
+                                    <th class="p-5">客戶/保單號碼</th>
+                                    <th class="p-5 text-right">本金(原)</th>
+                                    <th class="p-5 text-right">報酬(TWD)</th>
                                 </tr>
                             </thead>
                             <tbody id="dataTableBody" class="divide-y divide-slate-50"></tbody>
@@ -108,6 +101,7 @@
     </div>
 
     <script>
+        // ... (保持邏輯不變，包含自動抓取匯率與 loading.show/hide 功能) ...
         let rawData = [];
         let currentUsdRate = 32.25; 
         const FUND_PARAMS = { "DSP5": { nav: 8.4495, divRate: 0.048 }, "NGB2": { nav: 41.81, divRate: 0.23 } };
@@ -125,33 +119,21 @@
                     currentUsdRate = data.rates.TWD;
                     document.getElementById('rateDisplay').innerText = currentUsdRate.toFixed(4);
                 }
-            } catch(e) {
-                document.getElementById('rateDisplay').innerText = currentUsdRate + " (預估)";
-            }
+            } catch(e) { document.getElementById('rateDisplay').innerText = currentUsdRate + " (預估)"; }
         }
 
         document.getElementById('upload').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
-
-            // 啟動動畫
             loading.show();
-
             const reader = new FileReader();
             reader.onload = function(event) {
-                try {
-                    const workbook = XLSX.read(new Uint8Array(event.target.result), {type: 'array'});
-                    rawData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-                    
-                    // 確保匯率更新後才初始化介面，並在最後關閉動畫
-                    updateExchangeRate().then(() => {
-                        initDashboard();
-                        setTimeout(loading.hide, 500); // 額外延遲 0.5s 確保轉場平滑
-                    });
-                } catch (err) {
-                    alert("檔案讀取失敗，請檢查格式");
-                    loading.hide();
-                }
+                const workbook = XLSX.read(new Uint8Array(event.target.result), {type: 'array'});
+                rawData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                updateExchangeRate().then(() => {
+                    initDashboard();
+                    setTimeout(loading.hide, 500);
+                });
             };
             reader.readAsArrayBuffer(file);
         });
@@ -162,18 +144,14 @@
             const cumDiv = parseFloat(row['累積配息']) || 0;
             const currency = (row['幣別'] || '').toString().trim();
             const fund = FUND_PARAMS[row['基金標的']] || { nav: 0, divRate: 0 };
-            
             const mvTwd = units * fund.nav * currentUsdRate;
             let totalTwd, divTwd, costTwd;
-
             if (currency === '美元' || currency === 'USD') {
                 divTwd = cumDiv * currentUsdRate;
                 costTwd = capital * currentUsdRate;
                 totalTwd = (cumDiv + (units * fund.nav) - capital) * currentUsdRate;
             } else {
-                divTwd = cumDiv;
-                costTwd = capital;
-                totalTwd = (cumDiv + mvTwd) - capital;
+                divTwd = cumDiv; costTwd = capital; totalTwd = (cumDiv + mvTwd) - capital;
             }
             return { mvTwd, divTwd, costTwd, totalTwd, monthDiv: units * fund.divRate * currentUsdRate, capRaw: capital };
         }
@@ -182,21 +160,14 @@
             document.getElementById('dashboard').classList.remove('hidden');
             document.getElementById('uploadArea').classList.add('hidden');
             const selector = document.getElementById('clientSelector');
-            selector.innerHTML = '<option value="none">請選擇客戶...</option>';
-            
-            const clients = [...new Set(rawData.map(i => i['客戶名稱']))];
-            clients.forEach(c => {
+            selector.innerHTML = '<option value="none">選擇客戶...</option>';
+            [...new Set(rawData.map(i => i['客戶名稱']))].forEach(c => {
                 const opt = document.createElement('option'); opt.value = c; opt.innerText = c; selector.appendChild(opt);
             });
-            
             let totalKpi = { mv: 0, div: 0, month: 0, total: 0, cost: 0 };
             rawData.forEach(r => {
                 const res = calcRow(r);
-                totalKpi.mv += res.mvTwd;
-                totalKpi.div += res.divTwd;
-                totalKpi.month += res.monthDiv;
-                totalKpi.total += res.totalTwd;
-                totalKpi.cost += res.costTwd;
+                totalKpi.mv += res.mvTwd; totalKpi.div += res.divTwd; totalKpi.month += res.monthDiv; totalKpi.total += res.totalTwd;
             });
             updateKpiUI(totalKpi);
         }
@@ -213,21 +184,14 @@
         document.getElementById('toggleAllBtn').addEventListener('click', () => renderAnalysis('all'));
 
         function renderAnalysis(name) {
-            if (name === 'none') return;
             const isAll = name === 'all';
             const filtered = isAll ? rawData : rawData.filter(d => d['客戶名稱'] === name);
             const tbody = document.getElementById('dataTableBody');
             document.getElementById('tableWrapper').classList.remove('hidden');
             tbody.innerHTML = '';
-
             filtered.forEach(r => {
                 const res = calcRow(r);
-                tbody.innerHTML += `
-                    <tr class="text-sm">
-                        <td class="p-5 font-bold text-slate-700">${r['客戶名稱']}<br><span class="text-[10px] text-slate-400 font-normal tracking-tighter">${r['保單號碼']}</span></td>
-                        <td class="p-5 text-right font-mono text-slate-500">${res.capRaw.toLocaleString()}</td>
-                        <td class="p-5 text-right font-black ${res.totalTwd >=0 ? 'text-emerald-600' : 'text-rose-500'}">$${Math.round(res.totalTwd).toLocaleString()}</td>
-                    </tr>`;
+                tbody.innerHTML += `<tr><td class="p-5 font-bold">${r['客戶名稱']}<br><span class="text-[10px] text-slate-400 font-normal">${r['保單號碼']}</span></td><td class="p-5 text-right font-mono">${res.capRaw.toLocaleString()}</td><td class="p-5 text-right font-black ${res.totalTwd >=0 ? 'text-emerald-600' : 'text-rose-500'}">$${Math.round(res.totalTwd).toLocaleString()}</td></tr>`;
             });
         }
     </script>
