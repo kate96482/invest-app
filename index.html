@@ -146,11 +146,6 @@
     </div>
 
     <div id="renderCanvas">
-        <div style="text-align: center;">
-            <h2 style="margin:0; font-size:24px; font-weight:900; color:#1e293b;">個人資產分析報告</h2>
-            <p style="margin:4px 0 0 0; font-size:11px; color:#94a3b8; font-weight:700; letter-spacing: 1px;">PRIVATE ASSET ANALYSIS REPORT</p>
-        </div>
-
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
             <div style="grid-column: span 2; background:#0f172a; padding:20px; border-radius:24px; color:white; position:relative; overflow:hidden;">
                 <p style="margin:0; font-size:11px; opacity:0.6; font-weight:700;">總投資市值 (TWD)</p>
@@ -182,11 +177,11 @@
                 <p id="r-payback" style="margin:0; font-size:20px; font-weight:900; color:#d97706;">0%</p>
             </div>
             <div style="height:70px; width:100%; display:flex; align-items:flex-end; gap:8px; box-sizing:border-box;">
-                <div id="r-bar1" style="flex:1; background:#fef3c7; border-radius:6px; height:20%;"></div>
-                <div id="r-bar2" style="flex:1; background:#fde68a; border-radius:6px; height:40%;"></div>
-                <div id="r-bar3" style="flex:1; background:#fcd34d; border-radius:6px; height:60%;"></div>
-                <div id="r-bar4" style="flex:1; background:#fbbf24; border-radius:6px; height:80%;"></div>
-                <div id="r-bar5" style="flex:1; background:linear-gradient(to bottom, #fbbf24, #d97706); border-radius:6px; height:100%; box-shadow: 0 4px 12px rgba(217,119,6,0.2);"></div>
+                <div id="r-bar1" style="flex:1; background:#fef3c7; border-radius:6px; height:10%;"></div>
+                <div id="r-bar2" style="flex:1; background:#fde68a; border-radius:6px; height:10%;"></div>
+                <div id="r-bar3" style="flex:1; background:#fcd34d; border-radius:6px; height:10%;"></div>
+                <div id="r-bar4" style="flex:1; background:#fbbf24; border-radius:6px; height:10%;"></div>
+                <div id="r-bar5" style="flex:1; background:linear-gradient(to bottom, #fbbf24, #d97706); border-radius:6px; height:10%;"></div>
             </div>
         </div>
         
@@ -285,7 +280,6 @@
         }
 
         function updateStepChart(paybackRate) {
-            // 階梯圖高度邏輯：第五階為實際回本率，前面四階依比例遞減
             const rate = parseFloat(paybackRate);
             const bars = [
                 {id: 'bar1', r: 'r-bar1'}, {id: 'bar2', r: 'r-bar2'}, 
@@ -296,9 +290,7 @@
             bars.forEach((bar, index) => {
                 const stepHeight = Math.max(10, (rate * (index + 1) / 5));
                 const heightStr = Math.min(100, stepHeight) + '%';
-                // 更新網頁顯示的階梯
                 document.getElementById(bar.id).style.height = heightStr;
-                // 更新截圖畫布的階梯
                 document.getElementById(bar.r).style.height = heightStr;
             });
         }
@@ -342,7 +334,6 @@
                 retEl.classList.remove('hidden');
                 retEl.innerText = (totalReturnRate >= 0 ? '+' : '') + totalReturnRate.toFixed(2) + '%';
 
-                // 同步更新截圖畫布數據
                 document.getElementById('r-kpi1').innerText = '$' + Math.round(k.mv).toLocaleString();
                 document.getElementById('r-kpi2').innerText = '$' + Math.round(k.cap).toLocaleString();
                 document.getElementById('r-kpi3').innerText = '$' + Math.round(k.div).toLocaleString();
@@ -361,7 +352,6 @@
                 document.getElementById('indivPaybackRate').innerText = payback + '%';
                 document.getElementById('r-time').innerText = new Date().toLocaleString();
 
-                // 更新階梯圖高度
                 updateStepChart(payback);
             }
         }
@@ -411,11 +401,9 @@
             });
         }
 
-        // 截圖邏輯
         document.getElementById('exportImgBtn').addEventListener('click', async function() {
             const overlay = document.getElementById('loadingOverlay');
             overlay.classList.remove('hidden');
-
             try {
                 const canvas = await html2canvas(document.getElementById('renderCanvas'), {
                     scale: 3,
@@ -430,7 +418,6 @@
                 const preview = document.createElement('div');
                 preview.className = "fixed inset-0 bg-black/90 z-[10000] flex flex-col items-center justify-center p-4";
                 
-                // 強制預覽容器為正方形，解決電腦端跑版問題
                 preview.innerHTML = `
                     <div style="width: 90vw; max-width: 450px; position: relative;">
                         <div style="width: 100%; aspect-ratio: 1/1; border-radius: 20px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
