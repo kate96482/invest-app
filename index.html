@@ -23,7 +23,7 @@
                     <select id="clientSelector" class="border border-gray-300 p-2 rounded bg-white w-48 focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
                 </div>
                 <div class="text-sm font-medium">
-                    <span class="text-blue-600">最新美金匯率：<span id="rateDisplay">31.3245</span></span>
+                    <span class="text-blue-600">最新美金匯率基準：<span id="rateDisplay">31.3245</span></span>
                 </div>
             </div>
 
@@ -55,10 +55,10 @@
                     <thead class="bg-gray-50 text-gray-600 text-sm">
                         <tr>
                             <th class="p-4 border-b">客戶名稱</th>
-                            <th class="p-4 border-b text-right">投入本金(原幣)</th>
+                            <th class="p-4 border-b text-right">投資本金(原幣)</th>
                             <th class="p-4 border-b text-right">平均匯率</th>
                             <th class="p-4 border-b text-right">最新匯率</th>
-                            <th class="p-4 border-b text-right font-bold">含息總報酬</th>
+                            <th class="p-4 border-b text-right font-bold">含息總報酬 (TWD)</th>
                         </tr>
                     </thead>
                     <tbody id="dataTableBody" class="divide-y divide-gray-100 text-sm"></tbody>
@@ -71,13 +71,11 @@
         let rawData = [];
         let currentUsdRate = 31.3245; 
 
-        // 隱藏的標的參數
-        const FUND_PARAMS = {
+        const FUND_DATA = {
             "DSP5": { nav: 8.4495, divPerUnit: 0.05 }, 
             "NGB2": { nav: 41.81, divPerUnit: 0.23 } 
         };
 
-        // 抓取即時匯率
         async function fetchExRate() {
             try {
                 const url = `https://api.allorigins.win/get?url=${encodeURIComponent('https://www.fubon.com/banking/personal/deposit/exchange_rate/exchange_rate_tw.htm')}`;
@@ -95,7 +93,7 @@
                         }
                     }
                 }
-            } catch (e) { console.warn("使用預設匯率 31.3245"); }
+            } catch (e) { console.warn("匯率更新失敗，維持預設。"); }
         }
 
         document.getElementById('upload').addEventListener('change', function(e) {
@@ -137,44 +135,40 @@
                 const capital = parseFloat(row['投資本金']) || 0;
                 const cumDiv = parseFloat(row['累積配息']) || 0;
                 const avgEx = parseFloat(row['平均匯率']) || 1;
-                const fundKey = row['基金標的'];
+                const fundTag = row['基金標的'];
 
-                const fund = FUND_PARAMS[fundKey] || { nav: 0, divPerUnit: 0 };
+                const fund = FUND_DATA[fundTag] || { nav: 0, divPerUnit: 0 };
 
-                // --- 依照你提供的算法邏輯 ---
-                // 1. 匯差收益 = (最新匯率 - 平均匯率) * 累積單位數 * 最新淨值
-                // (補註：乘上最新淨值是為了將外幣單位轉換為外幣金額)
-                const exchangeGainTwd = (currentUsdRate - avgEx) * units * fund.nav;
-                
-                // 2. 淨值波動收益 = (最新淨值 - (投入時可能淨值)) 
-                // 為了簡化，直接用 (最新市值 - 本金成本) 來呈現
+                let totalReturnTwd = 0;
                 const currentMvTwd = units * fund.nav * currentUsdRate;
-                const costTwd = capital * avgEx;
-                const priceGainTwd = currentMvTwd - costTwd;
+                const currentDivTwd = cumDiv * currentUsdRate;
 
-                // 3. 累積配息收益 (換算台幣)
-                const divTwd = cumDiv * currentUsdRate;
-
-                // 4. 含息總報酬 (依照你的公式概念：匯差 + 息 + 淨值成長)
-                const totalReturn = priceGainTwd + divTwd;
-
-                // 5. 每月預估配息
-                const monthlyTwd = units * fund.divPerUnit * currentUsdRate;
+                // --- 核心修正算法 ---
+                if (avgEx === 1) {
+                    // 美元投入：(累積配息(USD) + 累積單位*最新淨值 - 投入本金(USD)) * 最新匯率
+                    const totalProfitUsd = (cumDiv + (units * fund.nav)) - capital;
+                    totalReturnTwd = totalProfitUsd * currentUsdRate;
+                } else {
+                    // 台幣投入：(累積配息(TWD) + 累積單位*最新淨值*最新匯率) - 投入本金(TWD)
+                    // 投入本金(TWD) = 投入本金(原幣) * 平均匯率
+                    const costTwd = capital * avgEx;
+                    totalReturnTwd = (currentDivTwd + currentMvTwd) - costTwd;
+                }
 
                 kpi.mv += currentMvTwd;
-                kpi.gain += (currentMvTwd - costTwd);
-                kpi.div += divTwd;
-                kpi.monthly += monthlyTwd;
-                kpi.total += totalReturn;
+                kpi.gain += (currentMvTwd - (capital * avgEx));
+                kpi.div += currentDivTwd;
+                kpi.monthly += (units * fund.divPerUnit * currentUsdRate);
+                kpi.total += totalReturnTwd;
 
                 tableBody.innerHTML += `
                     <tr>
                         <td class="p-4 border-b font-medium">${row['客戶名稱']}</td>
                         <td class="p-4 border-b text-right">${capital.toLocaleString()}</td>
-                        <td class="p-4 border-b text-right text-gray-500">${avgEx}</td>
+                        <td class="p-4 border-b text-right text-gray-400">${avgEx}</td>
                         <td class="p-4 border-b text-right text-blue-600 font-bold">${currentUsdRate}</td>
-                        <td class="p-4 border-b text-right font-bold ${totalReturn >= 0 ? 'text-green-600' : 'text-red-600'}">
-                            $${Math.round(totalReturn).toLocaleString()}
+                        <td class="p-4 border-b text-right font-bold ${totalReturnTwd >= 0 ? 'text-green-600' : 'text-red-600'}">
+                            $${Math.round(totalReturnTwd).toLocaleString()}
                         </td>
                     </tr>
                 `;
