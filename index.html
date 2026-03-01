@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>資產分析助手 v3</title>
+    <title>保單理財小管家</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
@@ -12,10 +12,10 @@
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; }
         .soft-shadow { box-shadow: 0 10px 40px rgba(0,0,0,0.05); }
         .gold-gradient { background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); }
-        /* 隱藏但存在的渲染容器 */
+        /* 強制正方形畫布：確保輸出比例 1:1 且不跑版 */
         #renderCanvas {
             position: absolute; left: -9999px; top: 0;
-            width: 500px; height: 500px; /* 強制正方形 */
+            width: 500px; height: 500px;
             background: white; padding: 40px;
             display: flex; flex-direction: column; justify-content: space-between;
             box-sizing: border-box;
@@ -26,13 +26,13 @@
 
     <div id="loadingOverlay" class="hidden fixed inset-0 bg-white/80 flex flex-col items-center justify-center z-[9999]">
         <div class="w-12 h-12 border-4 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
-        <p class="mt-4 font-bold text-slate-800">正在構建 1:1 分析圖卡...</p>
+        <p class="mt-4 font-bold text-slate-800">正在生成 1:1 圖卡...</p>
     </div>
 
     <div class="max-w-md mx-auto px-4 py-6">
         <header class="mb-6 flex justify-between items-end">
             <div>
-                <h1 class="text-2xl font-black text-slate-800 tracking-tight">資產分析助手</h1>
+                <h1 class="text-2xl font-black text-slate-800 tracking-tight">保單理財小管家</h1>
                 <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Market Real-time Sync</p>
             </div>
             <div class="bg-white px-3 py-1 rounded-xl border border-slate-100 shadow-sm text-right">
@@ -59,7 +59,7 @@
                 <div class="bg-blue-50 p-5 rounded-[2rem] border border-blue-100/50 relative">
                     <p class="text-[10px] font-bold text-blue-400 uppercase">投入本金</p>
                     <p id="kpi2" class="text-lg font-black text-blue-900 mt-1">$0</p>
-                    <span id="marketFluctPercent" class="absolute top-3 right-3 text-[9px] font-black px-1.5 py-0.5 rounded-md hidden"></span>
+                    <span id="marketFluctPercent" class="absolute top-4 right-4 text-[9px] font-black px-1.5 py-0.5 rounded-md hidden"></span>
                 </div>
 
                 <div class="bg-amber-50 p-5 rounded-[2rem] border border-amber-100/50">
@@ -72,12 +72,9 @@
                 <label class="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 block">分析對象切換</label>
                 <select id="clientSelector" class="w-full bg-slate-50 border-0 p-4 rounded-2xl font-bold text-slate-800 mb-6 outline-none ring-1 ring-slate-100 focus:ring-2 focus:ring-indigo-500"></select>
                 
-                <div id="individualAnalysis" class="hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div id="individualAnalysis" class="hidden">
                     <div class="flex justify-between items-end mb-4 px-1">
-                        <div>
-                            <p class="text-[10px] font-bold text-slate-400 uppercase">配息預測</p>
-                            <h3 class="font-black text-slate-800 text-lg">增長趨勢圖表</h3>
-                        </div>
+                        <h3 class="font-black text-slate-800 text-lg">增長趨勢圖表</h3>
                         <span id="indivDivTotal" class="text-amber-500 font-black text-xl">$0</span>
                     </div>
 
@@ -101,9 +98,8 @@
 
     <div id="renderCanvas">
         <div style="text-align: center;">
-            <div id="renderTag" style="display:inline-block; background:#f1f5f9; padding:4px 12px; border-radius:100px; font-size:10px; font-weight:900; color:#64748b; margin-bottom:8px;">OFFICIAL REPORT</div>
             <h2 id="renderName" style="margin:0; font-size:28px; font-weight:900; color:#1e293b;">客戶名稱</h2>
-            <p style="margin:4px 0 0 0; font-size:12px; color:#94a3b8; font-weight:500;">資產配置與配息增長分析</p>
+            <p style="margin:4px 0 0 0; font-size:12px; color:#94a3b8; font-weight:500;">保單理財小管家 · 資產分析報告</p>
         </div>
 
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
@@ -114,7 +110,7 @@
             <div style="background:#eff6ff; padding:20px; border-radius:25px; position:relative; border:1px solid #dbeafe;">
                 <p style="margin:0; font-size:11px; color:#3b82f6; font-weight:800;">投入本金</p>
                 <p id="r-kpi2" style="margin:5px 0 0 0; font-size:20px; font-weight:900; color:#1e3a8a;">$0</p>
-                <span id="r-fluct" style="position:absolute; top:15px; right:15px; font-size:10px; font-weight:900; padding:2px 6px; border-radius:6px;"></span>
+                <span id="r-fluct" style="position:absolute; top:18px; right:18px; font-size:10px; font-weight:900; padding:2px 6px; border-radius:6px;"></span>
             </div>
             <div style="background:#fffbeb; padding:20px; border-radius:25px; border:1px solid #fef3c7;">
                 <p style="margin:0; font-size:11px; color:#f59e0b; font-weight:800;">累積配息</p>
@@ -171,7 +167,7 @@
             document.getElementById('uploadArea').classList.add('hidden');
             document.getElementById('dashboard').classList.remove('hidden');
             const sel = document.getElementById('clientSelector');
-            sel.innerHTML = '<option value="">請選擇客戶...</option>';
+            sel.innerHTML = '<option value="">--- 請選擇客戶 ---</option>';
             [...new Set(rawData.map(r => r['客戶名稱']))].forEach(c => {
                 const opt = document.createElement('option'); opt.value = opt.innerText = c; sel.appendChild(opt);
             });
@@ -192,8 +188,7 @@
                 const isUsd = r['幣別'] === '美元' || r['幣別'] === 'USD';
                 const rate = isUsd ? currentUsdRate : 1;
                 const fund = FUND_PARAMS[r['基金標的']] || { nav: 0 };
-                
-                mv += (parseFloat(r['累積單位數']) || 0) * fund.nav * currentUsdRate; // 基金市值統一轉台幣
+                mv += (parseFloat(r['累積單位數']) || 0) * fund.nav * currentUsdRate;
                 cap += (parseFloat(r['投資本金']) || 0) * rate;
                 div += (parseFloat(r['累積配息']) || 0) * rate;
             });
@@ -201,7 +196,6 @@
             const fluctPct = cap > 0 ? ((mv - cap) / cap * 100) : 0;
             const pbRate = cap > 0 ? (div / cap * 100).toFixed(2) : 0;
 
-            // 更新介面
             document.getElementById('kpi1').innerText = '$' + Math.round(mv).toLocaleString();
             document.getElementById('kpi2').innerText = '$' + Math.round(cap).toLocaleString();
             document.getElementById('kpi3').innerText = '$' + Math.round(div).toLocaleString();
@@ -211,9 +205,8 @@
             const fluctEl = document.getElementById('marketFluctPercent');
             fluctEl.classList.remove('hidden');
             fluctEl.innerText = (fluctPct >= 0 ? '+' : '') + fluctPct.toFixed(2) + '%';
-            fluctEl.className = `absolute top-3 right-3 text-[9px] font-black px-1.5 py-0.5 rounded-md ${fluctPct >= 0 ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`;
+            fluctEl.className = `absolute top-4 right-4 text-[9px] font-black px-1.5 py-0.5 rounded-md ${fluctPct >= 0 ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`;
 
-            // 更新渲染畫布 (1:1 圖卡)
             document.getElementById('renderName').innerText = name;
             document.getElementById('r-kpi1').innerText = '$' + Math.round(mv).toLocaleString();
             document.getElementById('r-kpi2').innerText = '$' + Math.round(cap).toLocaleString();
@@ -243,8 +236,8 @@
                 <div style="width:100%; max-w-[380px]; aspect-ratio:1/1; border-radius:24px; overflow:hidden; box-shadow:0 30px 60px rgba(0,0,0,0.5);">
                     <img src="${imgData}" style="width:100%; height:100%; display:block;">
                 </div>
-                <p class="text-white font-bold mt-8 mb-2">圖卡已準備就緒</p>
-                <p class="text-white/50 text-xs mb-8">請長按圖片選擇「儲存影像」</p>
+                <p class="text-white font-bold mt-8 mb-2">1:1 圖卡已生成</p>
+                <p class="text-white/50 text-xs mb-8">請長按圖片儲存影像</p>
                 <button onclick="this.parentElement.remove()" class="bg-white text-black px-10 py-3 rounded-full font-bold">關閉預覽</button>
             `;
             document.body.appendChild(preview);
