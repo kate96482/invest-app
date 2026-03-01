@@ -15,21 +15,18 @@
         .kpi-card-main { grid-column: span 2; }
         .soft-shadow { box-shadow: 0 8px 30px rgba(0,0,0,0.04); }
         .gold-gradient { background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); }
-        /* 隱藏截圖時不需要出現的元素 */
-        .no-export { display: none !important; }
         
-        /* 截圖專用正方形容器樣式 */
+        /* 截圖專用容器樣式：寬度固定，高度由內容撐開以防截斷 */
         #tempCaptureContainer {
-            width: 500px;
-            height: 500px;
+            width: 400px;
             display: flex;
             flex-direction: column;
-            justify-content: center;
-            padding: 30px;
+            padding: 24px;
             background-color: white;
             position: absolute;
             left: -9999px;
-            top: -9999px;
+            top: 0;
+            border-radius: 2rem;
         }
     </style>
 </head>
@@ -332,48 +329,60 @@
             });
         }
 
-        // --- 優化：生成 1:1 正方形圖片，僅包含市值到回本率 ---
+        // --- 優化後：確保抓取完整 KPI 與分析內容，不截斷市值 ---
         document.getElementById('exportImgBtn').addEventListener('click', async function() {
             const overlay = document.getElementById('loadingOverlay');
             overlay.classList.remove('hidden');
 
-            // 1. 建立一個臨時容器來構造 1:1 的內容
+            // 1. 建立臨時容器
             const tempContainer = document.createElement('div');
             tempContainer.id = 'tempCaptureContainer';
             
-            // 2. 複製需要的區塊：KPI 區、分析區（含趨勢圖與回本率）
+            // 2. 複製需要的區塊
             const kpiClone = document.getElementById('kpiSection').cloneNode(true);
             const analysisClone = document.getElementById('analysisBox').cloneNode(true);
 
-            // 3. 清理複製品中不需要的 UI 元素 (選擇器與按鈕)
+            // 3. 淨化複製品，移除按鈕與選擇器
             analysisClone.querySelector('#selectorArea').remove();
             analysisClone.querySelector('#clientSelector').remove();
             analysisClone.querySelector('#exportImgBtn').remove();
-            analysisClone.classList.remove('soft-shadow'); // 移除陰影避免切邊
+            analysisClone.style.boxShadow = 'none';
+            analysisClone.style.border = 'none';
+            analysisClone.style.padding = '0';
+            
+            // 強制展開分析內容（防止 hidden 狀態導致抓不到高度）
+            const indivSection = analysisClone.querySelector('#individualAnalysis');
+            if (indivSection) indivSection.classList.remove('hidden');
 
             // 4. 組裝
             tempContainer.appendChild(kpiClone);
+            // 增加一點間距
+            const spacer = document.createElement('div'); spacer.className = "h-4";
+            tempContainer.appendChild(spacer);
             tempContainer.appendChild(analysisClone);
             document.body.appendChild(tempContainer);
 
             try {
+                // 不指定 width/height，讓 html2canvas 抓取容器內部的實際總高度
                 const canvas = await html2canvas(tempContainer, {
                     backgroundColor: "#ffffff",
-                    scale: 3, // 高清
-                    width: 500,
-                    height: 500,
+                    scale: 3, 
+                    useCORS: true,
                     logging: false,
-                    useCORS: true
+                    borderRadius: 30
                 });
 
                 const imgData = canvas.toDataURL("image/png");
                 
+                // 5. 顯示預覽
                 const previewOverlay = document.createElement('div');
                 previewOverlay.className = "fixed inset-0 bg-black/90 z-[10000] flex flex-col items-center justify-center p-6";
                 previewOverlay.innerHTML = `
-                    <p class="text-white font-bold mb-4">分析圖卡已生成 (1:1)</p>
-                    <img src="${imgData}" class="w-full max-w-[400px] aspect-square object-contain rounded-xl shadow-2xl mb-6">
-                    <p class="text-white/60 text-xs mb-6 text-center">手機端：請長按圖片儲存<br>此圖僅包含投資數據分析</p>
+                    <p class="text-white font-bold mb-4">分析圖卡已生成</p>
+                    <div class="w-full max-w-[400px] overflow-hidden rounded-xl shadow-2xl mb-6 bg-white">
+                        <img src="${imgData}" class="w-full h-auto object-contain">
+                    </div>
+                    <p class="text-white/60 text-xs mb-6 text-center">手機端：請長按圖片儲存<br>已確保數據顯示完整</p>
                     <button onclick="this.parentElement.remove()" class="bg-white text-black px-8 py-3 rounded-full font-bold">關閉預覽</button>
                 `;
                 document.body.appendChild(previewOverlay);
@@ -382,7 +391,7 @@
                 console.error("圖片生成失敗", err);
                 alert("圖片生成失敗");
             } finally {
-                tempContainer.remove(); // 移除臨時容器
+                tempContainer.remove();
                 overlay.classList.add('hidden');
             }
         });
