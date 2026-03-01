@@ -20,31 +20,31 @@
             <div class="mb-6 flex flex-wrap items-center justify-between bg-white p-4 rounded-lg shadow-sm border border-gray-100 gap-4">
                 <div>
                     <label class="font-bold text-gray-700 mr-2">客戶選擇：</label>
-                    <select id="clientSelector" class="border border-gray-300 p-2 rounded bg-white w-48"></select>
+                    <select id="clientSelector" class="border border-gray-300 p-2 rounded bg-white w-48 focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
                 </div>
-                <div class="text-sm text-gray-400">
-                    數據更新時間：2026/03/01
+                <div class="text-sm font-medium">
+                    <span class="text-blue-600">目前美金匯率基準：<span id="rateDisplay">31.3245</span></span>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
-                <div class="bg-blue-600 text-white p-5 rounded-xl shadow-md">
+                <div class="bg-slate-700 text-white p-5 rounded-xl shadow-md">
                     <p class="text-xs opacity-80 mb-1">投資型總市值 (TWD)</p>
                     <p id="kpi1" class="text-2xl font-bold">$0</p>
                 </div>
-                <div class="bg-green-600 text-white p-5 rounded-xl shadow-md">
+                <div class="bg-blue-600 text-white p-5 rounded-xl shadow-md">
                     <p class="text-xs opacity-80 mb-1">本金獲利 (TWD)</p>
                     <p id="kpi2" class="text-2xl font-bold">$0</p>
                 </div>
-                <div class="bg-orange-500 text-white p-5 rounded-xl shadow-md">
+                <div class="bg-amber-500 text-white p-5 rounded-xl shadow-md">
                     <p class="text-xs opacity-80 mb-1">已領配息 (TWD)</p>
                     <p id="kpi3" class="text-2xl font-bold">$0</p>
                 </div>
-                <div class="bg-purple-600 text-white p-5 rounded-xl shadow-md">
+                <div class="bg-indigo-600 text-white p-5 rounded-xl shadow-md">
                     <p class="text-xs opacity-80 mb-1">每月配息預估 (TWD)</p>
                     <p id="kpi4" class="text-2xl font-bold">$0</p>
                 </div>
-                <div class="bg-red-600 text-white p-5 rounded-xl shadow-md">
+                <div class="bg-rose-600 text-white p-5 rounded-xl shadow-md">
                     <p class="text-xs opacity-80 mb-1">含息總報酬 (TWD)</p>
                     <p id="kpi5" class="text-2xl font-bold">$0</p>
                 </div>
@@ -56,8 +56,8 @@
                         <tr>
                             <th class="p-4 border-b">客戶名稱</th>
                             <th class="p-4 border-b">投資本金 (原幣)</th>
-                            <th class="p-4 border-b">平均匯率</th>
-                            <th class="p-4 border-b">最新含息回報 (TWD)</th>
+                            <th class="p-4 border-b">投入時匯率</th>
+                            <th class="p-4 border-b">目前含息報酬 (TWD)</th>
                         </tr>
                     </thead>
                     <tbody id="dataTableBody" class="divide-y divide-gray-100"></tbody>
@@ -68,19 +68,43 @@
 
     <script>
         let rawData = [];
-        const currentUsdRate = 31.3245; 
-        const FUND_DATA = {
+        let currentUsdRate = 31.3245; 
+
+        // 內部對照用的數據 (不會顯示在網頁畫面上)
+        const INTERNAL_FUND_CONFIG = {
             "DSP5": { nav: 8.4495, divAmt: 0.05 }, 
             "NGB2": { nav: 41.81, divAmt: 0.23 } 
         };
 
+        // 自動更新匯率
+        async function updateExchangeRate() {
+            const url = `https://api.allorigins.win/get?url=${encodeURIComponent('https://www.fubon.com/banking/personal/deposit/exchange_rate/exchange_rate_tw.htm')}`;
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                const doc = new DOMParser().parseFromString(data.contents, 'text/html');
+                const rows = doc.querySelectorAll('tr');
+                for (let row of rows) {
+                    if (row.innerText.includes('美金')) {
+                        const tds = row.querySelectorAll('td');
+                        const rate = parseFloat(tds[2].innerText.trim()); 
+                        if (!isNaN(rate)) {
+                            currentUsdRate = rate;
+                            document.getElementById('rateDisplay').innerText = rate;
+                        }
+                    }
+                }
+            } catch (e) { console.warn("使用預設匯率計算"); }
+        }
+
         document.getElementById('upload').addEventListener('change', function(e) {
             const file = e.target.files[0];
             const reader = new FileReader();
-            reader.onload = function(event) {
+            reader.onload = async function(event) {
                 const data = new Uint8Array(event.target.result);
                 const workbook = XLSX.read(data, {type: 'array'});
                 rawData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                await updateExchangeRate();
                 initDashboard();
             };
             reader.readAsArrayBuffer(file);
@@ -112,12 +136,23 @@
                 const capital = parseFloat(row['投資本金']) || 0;
                 const cumDiv = parseFloat(row['累積配息']) || 0;
                 const avgEx = parseFloat(row['平均匯率']) || 1;
-                const fund = FUND_DATA[row['基金標的']] || { nav: 0, divAmt: 0 };
+                const fundTag = row['基金標的'];
+
+                const fundInfo = INTERNAL_FUND_CONFIG[fundTag] || { nav: 0, divAmt: 0 };
                 
-                const mvTwd = units * fund.nav * currentUsdRate;
+                // 1. 市值(台幣)：不論原本是什麼保單，現在價值多少台幣都是乘上最新匯率
+                const mvTwd = units * fundInfo.nav * currentUsdRate;
+                
+                // 2. 本金成本(台幣)：根據你的修正，Excel 的平均匯率如果是 1，代表美元投入，台幣價值就是原幣數值
                 const costTwd = capital * avgEx;
+                
+                // 3. 已領配息(台幣)：將累積的美金配息換算成現在台幣價值
                 const divTwd = cumDiv * currentUsdRate;
-                const monthlyTwd = units * fund.divAmt * currentUsdRate;
+                
+                // 4. 每月預估配息(台幣)
+                const monthlyTwd = units * fundInfo.divAmt * currentUsdRate;
+                
+                // 5. 含息總報酬(TWD) = (市值 + 已領配息) - 本金成本
                 const totalRetTwd = (mvTwd + divTwd) - costTwd;
 
                 kpi.mv += mvTwd;
@@ -128,9 +163,9 @@
 
                 tableBody.innerHTML += `
                     <tr>
-                        <td class="p-4 border-b">${row['客戶名稱']}</td>
+                        <td class="p-4 border-b font-medium">${row['客戶名稱']}</td>
                         <td class="p-4 border-b">${capital.toLocaleString()}</td>
-                        <td class="p-4 border-b text-gray-500">${avgEx}</td>
+                        <td class="p-4 border-b text-gray-500">${avgEx === 1 ? '美元投入 (1.0)' : avgEx}</td>
                         <td class="p-4 border-b font-bold ${totalRetTwd >= 0 ? 'text-green-600' : 'text-red-600'}">
                             $${Math.round(totalRetTwd).toLocaleString()}
                         </td>
