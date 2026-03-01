@@ -24,7 +24,7 @@
             width: 500px; 
             height: 500px;
             background: white; 
-            padding: 30px;
+            padding: 25px;
             display: flex; 
             flex-direction: column; 
             justify-content: center; 
@@ -74,18 +74,18 @@
             </div>
 
             <div id="kpiSection" class="kpi-grid">
-                <div class="kpi-card-main bg-slate-900 p-6 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden transition-all duration-500">
+                <div class="kpi-card-main bg-slate-900 p-6 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden">
                     <div class="relative z-10">
-                        <p id="kpiTitle" class="text-xs font-bold opacity-50 mb-1 tracking-widest uppercase">總投資市值</p>
+                        <p id="kpiTitle" class="text-xs font-bold opacity-50 mb-1 tracking-widest uppercase">總投資市值 (TWD)</p>
                         <p id="kpi1" class="text-3xl font-black tracking-tight">$0</p>
                     </div>
-                    <div class="absolute -right-4 -bottom-4 text-white/5 text-6xl font-black italic uppercase" id="kpiLabelBg">Asset</div>
+                    <div class="absolute -right-4 -bottom-4 text-white/5 text-6xl font-black italic uppercase">Asset</div>
                 </div>
 
                 <div class="bg-blue-50 p-5 rounded-[2rem] border border-blue-100/50 relative">
                     <div class="flex justify-between items-start">
                         <p class="text-[10px] font-bold text-blue-400 uppercase mb-1">投入本金</p>
-                        <span id="marketFluctPercent" class="absolute top-4 right-4 text-[9px] font-black leading-none px-1.5 py-0.5 rounded-md hidden"></span>
+                        <span id="marketFluctPercent" class="hidden text-[9px] font-black leading-none px-1.5 py-0.5 rounded-md"></span>
                     </div>
                     <p id="kpi2" class="text-lg font-black text-blue-900">$0</p>
                 </div>
@@ -95,10 +95,10 @@
                     <p id="kpi3" class="text-lg font-black text-amber-900">$0</p>
                 </div>
 
-                <div id="monthlyDivCard" class="bg-indigo-50 p-5 rounded-[2rem] border border-indigo-100/50">
+                <div class="bg-indigo-50 p-5 rounded-[2rem] border border-indigo-100/50 relative">
                     <div class="flex justify-between items-start mb-1">
                         <p class="text-[10px] font-bold text-indigo-500 uppercase">預估月配息</p>
-                        <span id="annualDivYield" class="hidden text-[9px] font-black bg-indigo-100/50 px-1.5 py-0.5 rounded-md"></span>
+                        <span id="annualDivYield" class="hidden text-[9px] font-black bg-indigo-100/80 text-indigo-600 px-1.5 py-0.5 rounded-md"></span>
                     </div>
                     <p id="kpi4" class="text-lg font-black text-indigo-900">$0</p>
                 </div>
@@ -155,50 +155,53 @@
 
     <div id="renderCanvas">
         <div style="background:#0f172a; padding:30px; border-radius:35px; color:white; position:relative; overflow:hidden;">
-            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                <div>
-                    <p style="margin:0; font-size:13px; opacity:0.6; font-weight:700; letter-spacing: 0.5px;">最新投資市值 (TWD)</p>
-                    <p id="r-kpi1" style="margin:10px 0 0 0; font-size:48px; font-weight:900; line-height:1;">$0</p>
-                </div>
-                <div id="r-yield-tag" style="background:rgba(99,102,241,0.2); border:1px solid rgba(99,102,241,0.3); padding:4px 10px; border-radius:10px; font-size:11px; font-weight:900; color:#818cf8;">
-                    年化配息率 0%
-                </div>
+            <div style="position:relative; z-index:10;">
+                <p style="margin:0; font-size:13px; opacity:0.6; font-weight:700; letter-spacing: 0.5px;">最新投資市值 (TWD)</p>
+                <p id="r-kpi1" style="margin:10px 0 0 0; font-size:48px; font-weight:900; line-height:1;">$0</p>
             </div>
             <div style="position:absolute; right:-10px; bottom:-10px; font-size:65px; font-weight:900; font-style:italic; color:rgba(255,255,255,0.05);">ASSET</div>
         </div>
 
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
             <div style="background:#eff6ff; padding:22px; border-radius:28px; border:1px solid #dbeafe; position:relative;">
-                <p style="margin:0; font-size:12px; color:#3b82f6; font-weight:800;">投入本金</p>
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <p style="margin:0; font-size:12px; color:#3b82f6; font-weight:800;">投入本金</p>
+                    <span id="r-fluct" style="font-size:11px; font-weight:900; padding:3px 8px; border-radius:8px;"></span>
+                </div>
                 <p id="r-kpi2" style="margin:8px 0 0 0; font-size:22px; font-weight:900; color:#1e3a8a;">$0</p>
-                <span id="r-fluct" style="position:absolute; top:20px; right:20px; font-size:11px; font-weight:900; padding:3px 8px; border-radius:8px;"></span>
             </div>
             <div style="background:#fffbeb; padding:22px; border-radius:28px; border:1px solid #fef3c7;">
                 <p style="margin:0; font-size:12px; color:#f59e0b; font-weight:800;">累積配息</p>
                 <p id="r-kpi3" style="margin:8px 0 0 0; font-size:22px; font-weight:900; color:#78350f;">$0</p>
             </div>
-            <div style="background:#f5f3ff; padding:22px; border-radius:28px; border:1px solid #ede9fe;">
-                <p style="margin:0; font-size:12px; color:#6366f1; font-weight:800;">預估月配息</p>
+            <div style="background:#f5f3ff; padding:22px; border-radius:28px; border:1px solid #ede9fe; position:relative;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <p style="margin:0; font-size:12px; color:#6366f1; font-weight:800;">預估月配息</p>
+                    <span id="r-yield-tag" style="background:rgba(99,102,241,0.1); color:#6366f1; padding:3px 6px; border-radius:6px; font-size:10px; font-weight:900;">0%</span>
+                </div>
                 <p id="r-kpi4" style="margin:8px 0 0 0; font-size:22px; font-weight:900; color:#312e81;">$0</p>
             </div>
-            <div style="background:#ecfdf5; padding:22px; border-radius:28px; border:1px solid #d1fae5;">
-                <p style="margin:0; font-size:12px; color:#10b981; font-weight:800;">含息總報酬</p>
+            <div style="background:#ecfdf5; padding:22px; border-radius:28px; border:1px solid #d1fae5; position:relative;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <p style="margin:0; font-size:12px; color:#10b981; font-weight:800;">含息總報酬</p>
+                    <span id="r-return-rate" style="color:#059669; font-size:10px; font-weight:900;">0%</span>
+                </div>
                 <p id="r-kpi5" style="margin:8px 0 0 0; font-size:22px; font-weight:900; color:#064e3b;">$0</p>
             </div>
         </div>
 
-        <div style="background:#f8fafc; padding:25px; border-radius:35px; border:1px solid #f1f5f9;">
+        <div style="background:#fffbeb; padding:25px; border-radius:35px; border:1px solid #fef3c7;">
             <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:15px;">
                 <div>
-                    <p style="margin:0; font-size:14px; font-weight:900; color:#1e293b;">配息回本趨勢</p>
-                    <p id="r-div-total" style="margin:2px 0 0 0; font-size:12px; color:#94a3b8; font-weight:700;">累積配息領取 $0</p>
+                    <p style="margin:0; font-size:14px; font-weight:900; color:#92400e;">配息回本趨勢分析</p>
+                    <p id="r-div-total" style="margin:2px 0 0 0; font-size:12px; color:#b45309; font-weight:700; opacity:0.8;">累積配息領取 $0</p>
                 </div>
                 <div style="text-align:right;">
                     <p style="margin:0; font-size:10px; color:#d97706; font-weight:900; text-transform:uppercase;">Payback Rate</p>
                     <p id="r-payback" style="margin:0; font-size:28px; font-weight:900; color:#d97706; line-height:1;">0%</p>
                 </div>
             </div>
-            <div style="height:90px; width:100%; display:flex; align-items:flex-end; gap:10px; box-sizing:border-box;">
+            <div style="height:80px; width:100%; display:flex; align-items:flex-end; gap:10px; box-sizing:border-box;">
                 <div style="flex:1; background:#fef3c7; border-radius:10px; height:20%;"></div>
                 <div style="flex:1; background:#fde68a; border-radius:10px; height:40%;"></div>
                 <div style="flex:1; background:#fcd34d; border-radius:10px; height:60%;"></div>
@@ -273,7 +276,7 @@
             } else {
                 divTwd = cumDiv; 
                 capitalTwd = capital;
-                totalTwd = (cumDiv + mvTwd) - capital;
+                totalTwd = (cumDiv + mvTwd) - capitalTwd;
             }
             return { mvTwd, divTwd, totalTwd, monthDiv, capitalTwd };
         }
@@ -330,10 +333,10 @@
             } else {
                 pctEl.classList.remove('hidden');
                 pctEl.innerText = (fluctPct >= 0 ? '+' : '') + fluctPct.toFixed(2) + '%';
-                pctEl.className = `absolute top-4 right-4 text-[9px] font-black px-1.5 py-0.5 rounded-md ${fluctPct >= 0 ? 'text-emerald-600 bg-emerald-100/50' : 'text-rose-600 bg-rose-100/50'}`;
+                pctEl.className = `text-[9px] font-black px-1.5 py-0.5 rounded-md ${fluctPct >= 0 ? 'text-emerald-600 bg-emerald-100/50' : 'text-rose-600 bg-rose-100/50'}`;
                 
                 yieldEl.classList.remove('hidden');
-                yieldEl.innerText = '年化配息率 ' + annualYield.toFixed(2) + '%';
+                yieldEl.innerText = annualYield.toFixed(2) + '%';
 
                 retEl.classList.remove('hidden');
                 retEl.innerText = (totalReturnRate >= 0 ? '+' : '') + totalReturnRate.toFixed(2) + '%';
@@ -345,16 +348,14 @@
                 document.getElementById('r-kpi4').innerText = '$' + Math.round(k.month).toLocaleString();
                 document.getElementById('r-kpi5').innerText = '$' + Math.round(k.total).toLocaleString();
                 
-                // 年化配息率移至右上角
-                document.getElementById('r-yield-tag').innerText = '年化配息率 ' + annualYield.toFixed(2) + '%';
+                document.getElementById('r-yield-tag').innerText = annualYield.toFixed(2) + '%';
+                document.getElementById('r-return-rate').innerText = (totalReturnRate >= 0 ? '+' : '') + totalReturnRate.toFixed(2) + '%';
                 
-                // 漲跌幅
                 const rFluct = document.getElementById('r-fluct');
                 rFluct.innerText = (fluctPct >= 0 ? '+' : '') + fluctPct.toFixed(2) + '%';
                 rFluct.style.background = fluctPct >= 0 ? '#d1fae5' : '#fee2e2';
                 rFluct.style.color = fluctPct >= 0 ? '#059669' : '#dc2626';
 
-                // 回本率與數字
                 document.getElementById('r-payback').innerText = payback + '%';
                 document.getElementById('r-div-total').innerText = '累積配息領取 $' + Math.round(k.div).toLocaleString();
 
@@ -408,7 +409,6 @@
             });
         }
 
-        // 截圖邏輯
         document.getElementById('exportImgBtn').addEventListener('click', async function() {
             const overlay = document.getElementById('loadingOverlay');
             overlay.classList.remove('hidden');
