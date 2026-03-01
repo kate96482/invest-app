@@ -27,7 +27,9 @@
             padding: 40px;
             display: flex; 
             flex-direction: column; 
-            justify-content: space-between;
+            /* 調整為垂直置中，因為移除了頂部標題 */
+            justify-content: center; 
+            gap: 20px; 
             box-sizing: border-box;
             z-index: -1;
         }
@@ -153,11 +155,6 @@
     </div>
 
     <div id="renderCanvas">
-        <div style="text-align: center;">
-            <h2 id="renderName" style="margin:0; font-size:26px; font-weight:900; color:#1e293b;">客戶名稱</h2>
-            <p style="margin:4px 0 0 0; font-size:12px; color:#94a3b8; font-weight:600; letter-spacing: 1px;">資產分析助手 · 市場數據同步</p>
-        </div>
-
         <div style="background:#0f172a; padding:25px; border-radius:30px; color:white; position:relative; overflow:hidden;">
             <p style="margin:0; font-size:12px; opacity:0.6; font-weight:700; letter-spacing: 0.5px;">總投資市值 (TWD)</p>
             <p id="r-kpi1" style="margin:8px 0 0 0; font-size:42px; font-weight:900; line-height:1;">$0</p>
@@ -329,8 +326,10 @@
                 retEl.classList.remove('hidden');
                 retEl.innerText = (totalReturnRate >= 0 ? '+' : '') + totalReturnRate.toFixed(2) + '%';
 
-                // 同步更新隱藏畫布數據 (確保截圖有數據)
-                document.getElementById('renderName').innerText = targetName;
+                // 同步更新隱藏畫布數據 (排除已刪除的 renderName)
+                if(document.getElementById('renderName')) {
+                    document.getElementById('renderName').innerText = targetName;
+                }
                 document.getElementById('r-kpi1').innerText = '$' + Math.round(k.mv).toLocaleString();
                 document.getElementById('r-kpi2').innerText = '$' + Math.round(k.cap).toLocaleString();
                 document.getElementById('r-kpi3').innerText = '$' + Math.round(k.div).toLocaleString();
