@@ -17,6 +17,20 @@
         .gold-gradient { background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); }
         /* 隱藏截圖時不需要出現的元素 */
         .no-export { display: none !important; }
+        
+        /* 截圖專用正方形容器樣式 */
+        #tempCaptureContainer {
+            width: 500px;
+            height: 500px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 30px;
+            background-color: white;
+            position: absolute;
+            left: -9999px;
+            top: -9999px;
+        }
     </style>
 </head>
 <body class="pb-10">
@@ -27,7 +41,7 @@
     </div>
 
     <div class="max-w-md mx-auto px-4 py-6" id="captureArea">
-        <header class="mb-6 flex justify-between items-center">
+        <header id="mainHeader" class="mb-6 flex justify-between items-center">
             <div>
                 <h1 class="text-2xl font-black text-slate-800">資產分析助手</h1>
                 <p class="text-slate-400 text-xs">市場數據自動同步已開啟</p>
@@ -318,54 +332,57 @@
             });
         }
 
-        // --- 新增：導出圖片功能 ---
+        // --- 優化：生成 1:1 正方形圖片，僅包含市值到回本率 ---
         document.getElementById('exportImgBtn').addEventListener('click', async function() {
-            const btn = this;
             const overlay = document.getElementById('loadingOverlay');
-            const captureArea = document.getElementById('captureArea');
-            const navButtons = document.getElementById('navButtons');
-            const selectorArea = document.getElementById('selectorArea');
-            const clientSelector = document.getElementById('clientSelector');
-            
             overlay.classList.remove('hidden');
+
+            // 1. 建立一個臨時容器來構造 1:1 的內容
+            const tempContainer = document.createElement('div');
+            tempContainer.id = 'tempCaptureContainer';
             
-            // 暫時隱藏不必要的 UI 元素
-            navButtons.style.visibility = 'hidden';
-            selectorArea.style.visibility = 'hidden';
-            clientSelector.style.visibility = 'hidden';
-            btn.style.display = 'none';
+            // 2. 複製需要的區塊：KPI 區、分析區（含趨勢圖與回本率）
+            const kpiClone = document.getElementById('kpiSection').cloneNode(true);
+            const analysisClone = document.getElementById('analysisBox').cloneNode(true);
+
+            // 3. 清理複製品中不需要的 UI 元素 (選擇器與按鈕)
+            analysisClone.querySelector('#selectorArea').remove();
+            analysisClone.querySelector('#clientSelector').remove();
+            analysisClone.querySelector('#exportImgBtn').remove();
+            analysisClone.classList.remove('soft-shadow'); // 移除陰影避免切邊
+
+            // 4. 組裝
+            tempContainer.appendChild(kpiClone);
+            tempContainer.appendChild(analysisClone);
+            document.body.appendChild(tempContainer);
 
             try {
-                const canvas = await html2canvas(captureArea, {
-                    backgroundColor: "#f8fafc",
-                    scale: 2, // 提高清晰度
-                    useCORS: true,
-                    logging: false
+                const canvas = await html2canvas(tempContainer, {
+                    backgroundColor: "#ffffff",
+                    scale: 3, // 高清
+                    width: 500,
+                    height: 500,
+                    logging: false,
+                    useCORS: true
                 });
 
-                // 將畫布轉為 Base64 圖片
                 const imgData = canvas.toDataURL("image/png");
                 
-                // 創建一個全螢幕預覽層讓用戶長按
                 const previewOverlay = document.createElement('div');
-                previewOverlay.className = "fixed inset-0 bg-black/80 z-[10000] flex flex-col items-center justify-center p-6";
+                previewOverlay.className = "fixed inset-0 bg-black/90 z-[10000] flex flex-col items-center justify-center p-6";
                 previewOverlay.innerHTML = `
-                    <p class="text-white font-bold mb-4">分析圖卡已生成</p>
-                    <img src="${imgData}" class="max-w-full max-h-[70vh] rounded-2xl shadow-2xl mb-6">
-                    <p class="text-white/60 text-xs mb-6">手機端：請長按圖片儲存<br>電腦端：請右鍵另存新檔</p>
+                    <p class="text-white font-bold mb-4">分析圖卡已生成 (1:1)</p>
+                    <img src="${imgData}" class="w-full max-w-[400px] aspect-square object-contain rounded-xl shadow-2xl mb-6">
+                    <p class="text-white/60 text-xs mb-6 text-center">手機端：請長按圖片儲存<br>此圖僅包含投資數據分析</p>
                     <button onclick="this.parentElement.remove()" class="bg-white text-black px-8 py-3 rounded-full font-bold">關閉預覽</button>
                 `;
                 document.body.appendChild(previewOverlay);
 
             } catch (err) {
                 console.error("圖片生成失敗", err);
-                alert("圖片生成失敗，請重試");
+                alert("圖片生成失敗");
             } finally {
-                // 恢復 UI 元素
-                navButtons.style.visibility = 'visible';
-                selectorArea.style.visibility = 'visible';
-                clientSelector.style.visibility = 'visible';
-                btn.style.display = 'flex';
+                tempContainer.remove(); // 移除臨時容器
                 overlay.classList.add('hidden');
             }
         });
