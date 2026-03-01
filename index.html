@@ -23,7 +23,6 @@
             background-color: rgba(255, 255, 255, 0.8);
         }
 
-        /* 緊湊化網格系統 */
         .kpi-grid { 
             display: grid; 
             grid-template-columns: repeat(2, 1fr); 
@@ -56,7 +55,6 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* 切換開關樣式 */
         .view-switch {
             background: #e2e8f0;
             padding: 3px;
@@ -86,7 +84,6 @@
         .view-switch button.active { color: white; }
         .view-switch button.inactive { color: #64748b; }
 
-        /* 絕對定位標籤樣式 */
         .status-tag {
             position: absolute;
             top: 12px;
@@ -103,7 +100,6 @@
             background-size: 1rem;
         }
 
-        /* 動畫效果 */
         .collapse-content {
             transition: max-height 0.4s ease-out, opacity 0.3s;
             max-height: 0;
@@ -137,7 +133,7 @@
             </div>
             <div class="bg-white px-3 py-1.5 rounded-xl border border-slate-100 shadow-sm text-right">
                 <span class="text-[8px] text-slate-400 font-black block leading-none mb-1 uppercase">USD/TWD</span>
-                <span id="rateDisplay" class="text-xs font-black text-indigo-600">32.50</span>
+                <span id="rateDisplay" class="text-xs font-black text-indigo-600">--.--</span>
             </div>
         </header>
 
@@ -152,7 +148,6 @@
         </div>
 
         <div id="dashboard" class="hidden space-y-4">
-            
             <div id="individualControls" class="hidden">
                 <div class="bg-white p-4 rounded-[1.8rem] soft-shadow border border-slate-50">
                     <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Select Client</label>
@@ -223,7 +218,6 @@
                     <span id="tableTitle" class="font-black text-slate-700 text-[10px] tracking-widest uppercase">全體資產名細</span>
                     <span id="tableArrow" class="text-slate-400 text-xs transition-transform duration-300">▼ 展開</span>
                 </button>
-                
                 <div id="tableWrapper" class="collapse-content bg-white rounded-[1.8rem] soft-shadow border border-slate-50">
                     <div class="px-5 py-3 border-b border-slate-50 flex justify-between items-center bg-slate-50/30 text-[9px] font-bold text-slate-400">
                         <span>ASSET LIST</span>
@@ -251,6 +245,7 @@
             "NGB2": { nav: 41.81, divRate: 0.59 } 
         };
 
+        // 核心修正：同步 function
         async function syncMarketData() {
             try {
                 const response = await fetch(SHEET_CSV_URL);
@@ -259,26 +254,35 @@
                 rows.forEach(r => {
                     const key = (r[0] || '').trim();
                     const val = parseFloat(r[1]);
-                    if (key === "DSP5_NAV") FUND_PARAMS["DSP5"].nav = val;
-                    if (key === "NGB2_NAV") FUND_PARAMS["NGB2"].nav = val;
-                    if (key === "USD_TWD") currentUsdRate = val;
+                    if (!isNaN(val)) {
+                        if (key === "DSP5_NAV") FUND_PARAMS["DSP5"].nav = val;
+                        if (key === "NGB2_NAV") FUND_PARAMS["NGB2"].nav = val;
+                        if (key === "USD_TWD") currentUsdRate = val;
+                    }
                 });
                 document.getElementById('rateDisplay').innerText = currentUsdRate.toFixed(2);
-            } catch (e) { console.error("同步失敗:", e); }
+                console.log("雲端數據已更新:", FUND_PARAMS, currentUsdRate);
+            } catch (e) { 
+                console.error("同步失敗，將使用預設值:", e); 
+            }
         }
 
-        document.getElementById('upload').addEventListener('change', function(e) {
+        document.getElementById('upload').addEventListener('change', async function(e) {
             const file = e.target.files[0];
             if (!file) return;
+
             document.getElementById('loadingOverlay').classList.remove('hidden');
+            
+            // 先同步雲端數據，等它完成
+            await syncMarketData();
+
             const reader = new FileReader();
             reader.onload = function(event) {
                 const workbook = XLSX.read(new Uint8Array(event.target.result), {type: 'array'});
                 rawData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-                syncMarketData().then(() => {
-                    initDashboard();
-                    setTimeout(() => document.getElementById('loadingOverlay').classList.add('hidden'), 500);
-                });
+                
+                initDashboard();
+                setTimeout(() => document.getElementById('loadingOverlay').classList.add('hidden'), 500);
             };
             reader.readAsArrayBuffer(file);
         });
@@ -342,10 +346,6 @@
             document.getElementById('pageTitle').innerText = isOverall ? '總體資產' : '個人資產';
             document.getElementById('tableTitle').innerText = isOverall ? '全體資產名細' : '個人資產名細';
 
-            const wrapper = document.getElementById('tableWrapper');
-            wrapper.classList.remove('show');
-            document.getElementById('tableArrow').innerText = '▼ 展開';
-
             if (isOverall) {
                 renderData('all');
             } else {
@@ -373,7 +373,7 @@
                     <div class="px-5 py-3 flex justify-between items-center hover:bg-slate-50 transition-colors">
                         <div>
                             <p class="font-black text-slate-800 text-xs">${r['客戶名稱']}</p>
-                            <p class="text-[8px] text-slate-400 font-bold tracking-tight uppercase">${r['保單號碼']} | ${r['基金標對']}</p>
+                            <p class="text-[8px] text-slate-400 font-bold tracking-tight uppercase">${r['保單號碼']} | ${r['基金標的']}</p>
                         </div>
                         <div class="text-right">
                             <p class="font-black text-xs ${res.totalProfitTwd >= 0 ? 'text-emerald-500' : 'text-rose-500'}">
@@ -405,7 +405,6 @@
                 yieldEl.classList.add('hidden');
                 retEl.classList.add('hidden');
             } else {
-                // 這裡加入了「市場波動」與「年化配息」的中文字
                 pctEl.classList.remove('hidden');
                 pctEl.innerText = '市場波動 ' + (fluctPct >= 0 ? '+' : '') + fluctPct.toFixed(2) + '%';
                 pctEl.className = `text-[9px] font-black px-1.5 py-0.5 rounded-md ${fluctPct >= 0 ? 'text-emerald-600 bg-emerald-100/50' : 'text-rose-600 bg-rose-100/50'}`;
