@@ -1,23 +1,21 @@
 {
-  "short_name": "財富管理",
-  "name": "資產管理小邦手",
+  "short_name": "資產分析",
+  "name": "資產分析助手 Pro",
   "icons": [
     {
       "src": "logo.png",
-      "type": "image/png",
       "sizes": "192x192",
-      "purpose": "any maskable"
+      "type": "image/png"
     },
     {
       "src": "logo.png",
-      "type": "image/png",
       "sizes": "512x512",
-      "purpose": "any maskable"
+      "type": "image/png"
     }
   ],
-  "start_url": "./index.html",
+  "start_url": "index.html",
   "display": "standalone",
-  "theme_color": "#0f172a",
-  "background_color": "#ffffff",
-  "scope": "./"
+  "scope": "./",
+  "background_color": "#f4f7f9",
+  "theme_color": "#005a92"
 }
