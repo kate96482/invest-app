@@ -321,17 +321,17 @@
             
             let mvTwd, divTwd, capitalTwd, totalProfitTwd, monthDiv;
 
-            // 修正點：判斷是否為美元或人民幣相關基金，只要是，就必須乘匯率
-            const isUsdFund = fundName === 'DSP5'; 
-            const isCnyFund = fundName === 'NGB2';
+            // 判斷基金類型
+            const isUsdFund = fundName === 'DSP5' || currency === '美元' || currency === 'USD'; 
+            const isCnyFund = fundName === 'NGB2' || currency === '人民幣' || currency === 'CNY';
 
-            if (isUsdFund || currency === '美元' || currency === 'USD') {
+            if (isUsdFund) {
+                // 美元標的換算 (本金匯率固定採 30.0 作為基準計算損益，現值與配息採即時匯率)
                 const capitalExchangeRate = 30.0; 
-                // 現值與月配息統一使用最新匯率 (currentUsdRate)
                 mvTwd = units * fund.nav * currentUsdRate;
                 monthDiv = units * fund.divRate * currentUsdRate;
 
-                // 如果 Excel 幣別是新台幣，代表本金與累積配息已經是台幣，不重複乘匯率
+                // 若 Excel 幣別註記為台幣，表示本金與累積配息已是台幣
                 if (currency === '新台幣' || currency === 'TWD') {
                     divTwd = cumDiv;
                     capitalTwd = capital;
@@ -341,7 +341,8 @@
                 }
                 totalProfitTwd = (divTwd + mvTwd) - capitalTwd;
 
-            } else if (isCnyFund || currency === '人民幣' || currency === 'CNY') {
+            } else if (isCnyFund) {
+                // 人民幣標的換算
                 const cnyCapitalExchangeRate = 4.5; 
                 mvTwd = units * fund.nav * currentCnyRate;
                 monthDiv = units * fund.divRate * currentCnyRate;
