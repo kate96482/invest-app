@@ -265,23 +265,30 @@
         const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQHKETau10x9H1XCGiO-nDUdlgB7eMIYMTi25y5-ZYiUECEDnNHN22CxxVvitdmTLUZAHSVBrZCbK2P/pub?gid=0&single=true&output=csv"; 
 
         const FUND_PARAMS = { 
-            "DSP5": { nav: 8.4495, divRate: 0.055 }, 
-            "NGB2": { nav: 41.81, divRate: 0.59 } 
+            "DSP5": { nav: 0, divRate: 0 }, 
+            "NGB2": { nav: 0, divRate: 0 },
+            "JFC1": { nav: 0, divRate: 0 },
+            "JFP11": { nav: 0, divRate: 0 },
+            "SCD3": { nav: 0, divRate: 0 },
+            "SCD7": { nav: 0, divRate: 0 }
         };
 
         window.onload = syncMarketData;
 
         async function syncMarketData() {
             try {
-                const response = await fetch(SHEET_CSV_URL);
+                const response = await fetch(`${SHEET_CSV_URL}&t=${new Date().getTime()}`);
                 const text = await response.text();
                 const rows = text.split('\n').map(row => row.split(','));
                 rows.forEach(r => {
                     const key = (r[0] || '').trim();
                     const val = parseFloat(r[1]);
                     if (!isNaN(val)) {
-                        if (key === "DSP5_NAV") FUND_PARAMS["DSP5"].nav = val;
-                        if (key === "NGB2_NAV") FUND_PARAMS["NGB2"].nav = val;
+                        // 自動對應所有標的的 NAV 和 DIV
+                        Object.keys(FUND_PARAMS).forEach(f => {
+                            if (key === `${f}_NAV`) FUND_PARAMS[f].nav = val;
+                            if (key === `${f}_DIV`) FUND_PARAMS[f].divRate = val;
+                        });
                         if (key === "USD_TWD") currentUsdRate = val;
                         if (key === "CNY_TWD") currentCnyRate = val;
                     }
@@ -315,8 +322,8 @@
             const fund = FUND_PARAMS[fundName] || { nav: 0, divRate: 0 };
             
             let mvTwd, divTwd, capitalTwd, monthDiv;
-            const isUsdFund = fundName === 'DSP5' || currency === '美元' || currency === 'USD'; 
-            const isCnyFund = fundName === 'NGB2' || currency === '人民幣' || currency === 'CNY';
+            const isUsdFund = currency === '美元' || currency === 'USD' || ['DSP5', 'JFC1', 'JFP11', 'SCD3', 'SCD7'].includes(fundName); 
+            const isCnyFund = currency === '人民幣' || currency === 'CNY' || fundName === 'NGB2';
 
             if (isUsdFund) {
                 mvTwd = units * (fund.nav || 0) * currentUsdRate;
@@ -376,7 +383,6 @@
             const isAll = targetName === 'all';
             const filtered = isAll ? rawData : rawData.filter(d => d['客戶名稱'] === targetName);
             
-            // 按「保單號碼」進行真正加總
             const policyGroups = {};
             filtered.forEach(row => {
                 const pId = (row['保單號碼'] || '無單號').toString().trim();
@@ -399,7 +405,6 @@
                 policyGroups[pId].cap += res.capitalTwd;
             });
 
-            // 總 KPI 計算
             let k = { mv: 0, div: 0, month: 0, cap: 0, profit: 0 };
             const tbody = document.getElementById('dataTableBody');
             tbody.innerHTML = '';
@@ -413,7 +418,6 @@
                 const pgProfit = (pg.mv + pg.div) - pg.cap;
                 const fundList = Array.from(pg.funds).join(' + ');
 
-                // 渲染列表：每一張保單號碼現在只會出現一行
                 tbody.innerHTML += `
                     <div class="px-5 py-4 flex justify-between items-center hover:bg-slate-50 transition-colors">
                         <div class="flex-1 pr-4">
@@ -435,14 +439,12 @@
 
             k.profit = (k.mv + k.div) - k.cap;
 
-            // 更新 KPI 卡片
             document.getElementById('kpi1').innerText = '$' + Math.round(k.mv).toLocaleString();
             document.getElementById('kpi2').innerText = '$' + Math.round(k.cap).toLocaleString();
             document.getElementById('kpi3').innerText = '$' + Math.round(k.div).toLocaleString();
             document.getElementById('kpi4').innerText = '$' + Math.round(k.month).toLocaleString();
             document.getElementById('kpi5').innerText = '$' + Math.round(k.profit).toLocaleString();
 
-            // 處理百分比顯示
             const fluctPct = k.cap > 0 ? ((k.mv - k.cap) / k.cap * 100) : 0;
             const totalReturnRate = k.cap > 0 ? (((k.div + k.mv) / k.cap) - 1) * 100 : 0;
             const annualYield = k.mv > 0 ? (k.month * 12 / k.mv) * 100 : 0;
