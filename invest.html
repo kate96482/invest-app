@@ -148,9 +148,15 @@
                     <h1 id="pageTitle" class="text-xl md:text-2xl font-black text-slate-900">資產分析助手</h1>
                 </div>
             </div>
-            <div class="bg-white px-3 py-1.5 rounded-xl border border-slate-100 shadow-sm text-right">
-                <span class="text-[8px] text-slate-400 font-black block leading-none mb-1 uppercase">USD/TWD</span>
-                <span id="rateDisplay" class="text-xs font-black text-indigo-600">--.--</span>
+            <div class="flex gap-2">
+                <div class="bg-white px-3 py-1.5 rounded-xl border border-slate-100 shadow-sm text-right">
+                    <span class="text-[8px] text-slate-400 font-black block leading-none mb-1 uppercase">USD/TWD</span>
+                    <span id="rateDisplay" class="text-xs font-black text-indigo-600">--.--</span>
+                </div>
+                <div class="bg-white px-3 py-1.5 rounded-xl border border-slate-100 shadow-sm text-right">
+                    <span class="text-[8px] text-slate-400 font-black block leading-none mb-1 uppercase">CNY/TWD</span>
+                    <span id="cnyRateDisplay" class="text-xs font-black text-red-600">--.--</span>
+                </div>
             </div>
         </header>
 
@@ -253,6 +259,7 @@
     <script>
         let rawData = [];
         let currentUsdRate = 32.50; 
+        let currentCnyRate = 4.50; 
         let currentView = 'overall'; 
 
         const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQHKETau10x9H1XCGiO-nDUdlgB7eMIYMTi25y5-ZYiUECEDnNHN22CxxVvitdmTLUZAHSVBrZCbK2P/pub?gid=0&single=true&output=csv"; 
@@ -262,7 +269,6 @@
             "NGB2": { nav: 41.81, divRate: 0.59 } 
         };
 
-        // 頁面載入即刻同步雲端匯率，避免上傳後才抓取導致的跳動
         window.onload = syncMarketData;
 
         async function syncMarketData() {
@@ -277,10 +283,12 @@
                         if (key === "DSP5_NAV") FUND_PARAMS["DSP5"].nav = val;
                         if (key === "NGB2_NAV") FUND_PARAMS["NGB2"].nav = val;
                         if (key === "USD_TWD") currentUsdRate = val;
+                        if (key === "CNY_TWD") currentCnyRate = val;
                     }
                 });
                 document.getElementById('rateDisplay').innerText = currentUsdRate.toFixed(2);
-                console.log("雲端數據已更新:", FUND_PARAMS, currentUsdRate);
+                document.getElementById('cnyRateDisplay').innerText = currentCnyRate.toFixed(2);
+                console.log("雲端數據已更新:", FUND_PARAMS, "USD:", currentUsdRate, "CNY:", currentCnyRate);
             } catch (e) { 
                 console.error("同步失敗，將使用預設值:", e); 
             }
@@ -292,7 +300,6 @@
 
             document.getElementById('loadingOverlay').classList.remove('hidden');
             
-            // 上傳時再次確保匯率是最新的
             await syncMarketData();
 
             const reader = new FileReader();
@@ -314,26 +321,30 @@
             const fundName = (row['基金標的'] || '').toString().trim();
             const fund = FUND_PARAMS[fundName] || { nav: 0, divRate: 0 };
             
-            // 核心邏輯：投入本金與累積配息使用固定匯率 30，其餘使用即時匯率
-            const capitalExchangeRate = 30.0; 
-            
-            const mvTwd = units * fund.nav * currentUsdRate; // 市值始終用即時匯率
-            const monthDiv = units * fund.divRate * currentUsdRate; // 預估月配息用即時匯率
-            let divTwd, capitalTwd, totalProfitTwd;
-            
+            let mvTwd, divTwd, capitalTwd, totalProfitTwd, monthDiv;
+
             if (currency === '美元' || currency === 'USD') {
-                // 使用固定匯率計算本金與累積配息的台幣價值
+                const capitalExchangeRate = 30.0; 
+                mvTwd = units * fund.nav * currentUsdRate;
+                monthDiv = units * fund.divRate * currentUsdRate;
                 divTwd = cumDiv * currentUsdRate;
                 capitalTwd = capital * capitalExchangeRate;
-                
-                // 總報酬 = (累積配息(USD) + 目前市值(USD)) * 即時匯率 - 投入本金(TWD)
-                // 這樣計算會包含本金的匯率增值損益
                 totalProfitTwd = (cumDiv + (units * fund.nav)) * currentUsdRate - capitalTwd;
+            } else if (currency === '人民幣' || currency === 'CNY') {
+                const cnyCapitalExchangeRate = 4.5; 
+                mvTwd = units * fund.nav * currentCnyRate;
+                monthDiv = units * fund.divRate * currentCnyRate;
+                divTwd = cumDiv * currentCnyRate;
+                capitalTwd = capital * cnyCapitalExchangeRate;
+                totalProfitTwd = (cumDiv + (units * fund.nav)) * currentCnyRate - capitalTwd;
             } else {
+                mvTwd = units * (fund.nav || 0);
+                monthDiv = units * (fund.divRate || 0);
                 divTwd = cumDiv; 
                 capitalTwd = capital; 
                 totalProfitTwd = (cumDiv + mvTwd) - capital;
             }
+            
             return { mvTwd, divTwd, totalProfitTwd, monthDiv, capitalTwd };
         }
 
@@ -344,6 +355,7 @@
             
             const selector = document.getElementById('clientSelector');
             selector.innerHTML = '';
+            // 取得所有不重複客戶名稱
             const clients = [...new Set(rawData.map(i => i['客戶名稱']))];
             clients.forEach(c => {
                 const opt = document.createElement('option'); opt.value = c; opt.innerText = c; selector.appendChild(opt);
@@ -386,15 +398,23 @@
         function renderData(targetName) {
             const isAll = targetName === 'all';
             const filtered = isAll ? rawData : rawData.filter(d => d['客戶名稱'] === targetName);
+            
+            // 初始化累計值
             let k = { mv: 0, div: 0, month: 0, total: 0, cap: 0 };
             
             const tbody = document.getElementById('dataTableBody');
             tbody.innerHTML = '';
 
+            // 處理每一筆資料並累加到總額中
             filtered.forEach(r => {
                 const res = calcRow(r);
-                k.mv += res.mvTwd; k.div += res.divTwd; k.month += res.monthDiv; k.total += res.totalProfitTwd; k.cap += res.capitalTwd;
+                k.mv += res.mvTwd; 
+                k.div += res.divTwd; 
+                k.month += res.monthDiv; 
+                k.total += res.totalProfitTwd; 
+                k.cap += res.capitalTwd;
                 
+                // 動態生成每一筆標的的明細列
                 tbody.innerHTML += `
                     <div class="px-5 py-3 flex justify-between items-center hover:bg-slate-50 transition-colors">
                         <div>
@@ -410,12 +430,14 @@
                     </div>`;
             });
 
+            // 計算百分比指標（基於已加總的數據）
             const fluctAmt = k.mv - k.cap;
             const fluctPct = k.cap > 0 ? (fluctAmt / k.cap) * 100 : 0;
             const totalReturnRate = k.cap > 0 ? (((k.div + k.mv) / k.cap) - 1) * 100 : 0;
             const annualYield = k.mv > 0 ? (k.month * 12 / k.mv) * 100 : 0;
             const payback = k.cap > 0 ? ((k.div / k.cap) * 100).toFixed(2) : "0.00";
 
+            // 更新介面上的 KPI 大數字
             document.getElementById('kpi1').innerText = '$' + Math.round(k.mv).toLocaleString();
             document.getElementById('kpi2').innerText = '$' + Math.round(k.cap).toLocaleString();
             document.getElementById('kpi3').innerText = '$' + Math.round(k.div).toLocaleString();
