@@ -257,12 +257,12 @@
 
         const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQHKETau10x9H1XCGiO-nDUdlgB7eMIYMTi25y5-ZYiUECEDnNHN22CxxVvitdmTLUZAHSVBrZCbK2P/pub?gid=0&single=true&output=csv"; 
 
-        // 動態資料池：自動從 Sheets 抓取
+        // 動態資料池
         let FUND_PARAMS = { 
             "DSP5": { nav: 8.4495, divRate: 0.055 }, 
             "NGB2": { nav: 41.81, divRate: 0.59 } 
         };
-        let EXCHANGE_RATES = { "USD": 32.50 }; // 預設匯率
+        let EXCHANGE_RATES = { "USD": 32.50, "CNY": 4.5 }; 
 
         async function syncMarketData() {
             try {
@@ -275,21 +275,21 @@
                     const val = parseFloat(r[1]);
                     
                     if (!isNaN(val)) {
-                        // 1. 處理匯率 (XXX_TWD，包含你新增的 CNY_TWD)
+                        // 處理即時匯率 (用於市值與配息)
                         if (key.endsWith("_TWD")) {
                             const currencyCode = key.replace("_TWD", "");
                             EXCHANGE_RATES[currencyCode] = val;
                             if (currencyCode === "USD") currentUsdRate = val;
                         }
                         
-                        // 2. 處理淨值 (XXX_NAV)
+                        // 處理最新淨值 (NAV)
                         if (key.endsWith("_NAV")) {
                             const fundCode = key.replace("_NAV", "");
                             if (!FUND_PARAMS[fundCode]) FUND_PARAMS[fundCode] = { nav: 0, divRate: 0 };
                             FUND_PARAMS[fundCode].nav = val;
                         }
 
-                        // 3. 處理每單位配息 (XXX_DIV) - 新增功能
+                        // 處理最新每單位配息 (DIV)
                         if (key.endsWith("_DIV")) {
                             const fundCode = key.replace("_DIV", "");
                             if (!FUND_PARAMS[fundCode]) FUND_PARAMS[fundCode] = { nav: 0, divRate: 0 };
@@ -328,36 +328,39 @@
             const fundName = (row['基金標的'] || '').toString().trim();
             const fund = FUND_PARAMS[fundName] || { nav: 0, divRate: 0 };
             
-            // 幣別映射處理
+            // 幣別歸一化
             let currency = currencyRaw;
             if (currency === '美元' || currency === 'USD') currency = 'USD';
             if (currency === '人民幣' || currency === 'CNY') currency = 'CNY';
             if (currency === '台幣' || currency === 'TWD') currency = 'TWD';
 
-            // 取得該幣別的即時匯率，找不到則預設為 1 (台幣)
+            // 即時匯率：從雲端抓取，若無則用預設
             const liveRate = EXCHANGE_RATES[currency] || 1;
             
-            // 計算數值
+            // 投資現值 (市值)：始終使用【即時匯率】
             const mvTwd = units * fund.nav * liveRate; 
+            // 預估月配息：使用【即時匯率】
             const monthDiv = units * fund.divRate * liveRate; 
             
             let divTwd, capitalTwd, totalProfitTwd;
-            const capitalExchangeRate = 30.0; // 你要求的美元固定本金匯率
             
             if (currency === 'USD') {
+                const fixedUsdRate = 30.0; // 美元指定固定本金匯率
                 divTwd = cumDiv * liveRate;
-                capitalTwd = capital * capitalExchangeRate;
-                totalProfitTwd = (cumDiv + (units * fund.nav)) * liveRate - capitalTwd;
+                capitalTwd = capital * fixedUsdRate; // 投入本金固定用 30
+                
+                // 含息總報酬 = (累積配息(TWD) + 目前市值(TWD)) - 投入本金(TWD)
+                totalProfitTwd = (divTwd + mvTwd) - capitalTwd;
             } else if (currency === 'CNY') {
-                // 人民幣資產計算
+                const fixedCnyRate = 4.5; // 人民幣指定固定本金匯率
                 divTwd = cumDiv * liveRate;
-                capitalTwd = capital * liveRate; 
-                totalProfitTwd = (cumDiv + (units * fund.nav)) * liveRate - capitalTwd;
+                capitalTwd = capital * fixedCnyRate; // 投入本金固定用 4.5
+                totalProfitTwd = (divTwd + mvTwd) - capitalTwd;
             } else {
-                // 台幣
+                // 台幣資產
                 divTwd = cumDiv; 
                 capitalTwd = capital; 
-                totalProfitTwd = (cumDiv + mvTwd) - capital;
+                totalProfitTwd = (divTwd + mvTwd) - capitalTwd;
             }
             
             return { mvTwd, divTwd, totalProfitTwd, monthDiv, capitalTwd };
