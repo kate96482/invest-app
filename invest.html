@@ -243,7 +243,7 @@
                 </button>
                 <div id="tableWrapper" class="collapse-content bg-white rounded-[1.8rem] soft-shadow border border-slate-50">
                     <div class="px-5 py-3 border-b border-slate-50 flex justify-between items-center bg-slate-50/30 text-[9px] font-bold text-slate-400">
-                        <span>ASSET LIST</span>
+                        <span>POLICY CONSOLIDATED</span>
                         <span>UNIT: TWD</span>
                     </div>
                     <div id="dataTableBody" class="divide-y divide-slate-50 max-h-[350px] overflow-y-auto no-scrollbar"></div>
@@ -288,19 +288,14 @@
                 });
                 document.getElementById('rateDisplay').innerText = currentUsdRate.toFixed(2);
                 document.getElementById('cnyRateDisplay').innerText = currentCnyRate.toFixed(2);
-                console.log("雲端數據已更新:", FUND_PARAMS, "USD:", currentUsdRate, "CNY:", currentCnyRate);
-            } catch (e) { 
-                console.error("同步失敗，將使用預設值:", e); 
-            }
+            } catch (e) { console.error("同步失敗:", e); }
         }
 
         document.getElementById('upload').addEventListener('change', async function(e) {
             const file = e.target.files[0];
             if (!file) return;
-
             document.getElementById('loadingOverlay').classList.remove('hidden');
             await syncMarketData();
-
             const reader = new FileReader();
             reader.onload = function(event) {
                 const workbook = XLSX.read(new Uint8Array(event.target.result), {type: 'array'});
@@ -319,53 +314,33 @@
             const fundName = (row['基金標的'] || '').toString().trim();
             const fund = FUND_PARAMS[fundName] || { nav: 0, divRate: 0 };
             
-            let mvTwd, divTwd, capitalTwd, totalProfitTwd, monthDiv;
-
+            let mvTwd, divTwd, capitalTwd, monthDiv;
             const isUsdFund = fundName === 'DSP5' || currency === '美元' || currency === 'USD'; 
             const isCnyFund = fundName === 'NGB2' || currency === '人民幣' || currency === 'CNY';
 
             if (isUsdFund) {
-                const capitalExchangeRate = 30.0; 
                 mvTwd = units * (fund.nav || 0) * currentUsdRate;
                 monthDiv = units * (fund.divRate || 0) * currentUsdRate;
-
-                if (currency === '新台幣' || currency === 'TWD') {
-                    divTwd = cumDiv;
-                    capitalTwd = capital;
-                } else {
-                    divTwd = cumDiv * currentUsdRate;
-                    capitalTwd = capital * capitalExchangeRate;
-                }
+                divTwd = (currency === '新台幣' || currency === 'TWD') ? cumDiv : cumDiv * currentUsdRate;
+                capitalTwd = (currency === '新台幣' || currency === 'TWD') ? capital : capital * 30.0;
             } else if (isCnyFund) {
-                const cnyCapitalExchangeRate = 4.5; 
                 mvTwd = units * (fund.nav || 0) * currentCnyRate;
                 monthDiv = units * (fund.divRate || 0) * currentCnyRate;
-
-                if (currency === '新台幣' || currency === 'TWD') {
-                    divTwd = cumDiv;
-                    capitalTwd = capital;
-                } else {
-                    divTwd = cumDiv * currentCnyRate;
-                    capitalTwd = capital * cnyCapitalExchangeRate;
-                }
+                divTwd = (currency === '新台幣' || currency === 'TWD') ? cumDiv : cumDiv * currentCnyRate;
+                capitalTwd = (currency === '新台幣' || currency === 'TWD') ? capital : capital * 4.5;
             } else {
                 mvTwd = units * (fund.nav || 0);
                 monthDiv = units * (fund.divRate || 0);
                 divTwd = cumDiv; 
                 capitalTwd = capital; 
             }
-            
-            // 損益在此僅為單列參考值，最終彙總以保單分組為準
-            totalProfitTwd = (divTwd + mvTwd) - capitalTwd;
-            
-            return { mvTwd, divTwd, totalProfitTwd, monthDiv, capitalTwd };
+            return { mvTwd, divTwd, monthDiv, capitalTwd };
         }
 
         function initDashboard() {
             document.getElementById('dashboard').classList.remove('hidden');
             document.getElementById('uploadArea').classList.add('hidden');
             document.getElementById('switchContainer').classList.remove('hidden');
-            
             const selector = document.getElementById('clientSelector');
             selector.innerHTML = '';
             const clients = [...new Set(rawData.map(i => i['客戶名稱']))];
@@ -391,7 +366,7 @@
             document.getElementById('individualControls').classList.toggle('hidden', isOverall);
             document.getElementById('individualTrend').classList.toggle('hidden', isOverall);
             document.getElementById('pageTitle').innerText = isOverall ? '總體資產' : '個人資產';
-            document.getElementById('tableTitle').innerText = isOverall ? '全體資產名細' : '個人資產名細';
+            document.getElementById('tableTitle').innerText = isOverall ? '全體資產(按保單加總)' : '個人資產名細';
             renderData(isOverall ? 'all' : document.getElementById('clientSelector').value);
         }
 
@@ -401,70 +376,77 @@
             const isAll = targetName === 'all';
             const filtered = isAll ? rawData : rawData.filter(d => d['客戶名稱'] === targetName);
             
-            // 第一步：預處理所有原始列的轉換數據
-            const processedRows = filtered.map(r => {
-                const res = calcRow(r);
-                return { ...r, ...res };
-            });
-
-            // 第二步：按「保單號碼」分組聚合
+            // 按「保單號碼」進行真正加總
             const policyGroups = {};
-            processedRows.forEach(row => {
-                const pId = (row['保單號碼'] || 'unknown').toString().trim();
+            filtered.forEach(row => {
+                const pId = (row['保單號碼'] || '無單號').toString().trim();
+                const res = calcRow(row);
+                
                 if (!policyGroups[pId]) {
-                    policyGroups[pId] = { totalMv: 0, totalDiv: 0, totalMonthDiv: 0, totalCap: 0 };
+                    policyGroups[pId] = { 
+                        clientName: row['客戶名稱'],
+                        policyId: pId,
+                        funds: new Set([row['基金標的']]),
+                        mv: 0, div: 0, month: 0, cap: 0 
+                    };
+                } else {
+                    policyGroups[pId].funds.add(row['基金標的']);
                 }
-                policyGroups[pId].totalMv += row.mvTwd;
-                policyGroups[pId].totalDiv += row.divTwd;
-                policyGroups[pId].totalMonthDiv += row.monthDiv;
-                policyGroups[pId].totalCap += row.capitalTwd; // 這裡會加總同一張保單的所有本金，若第二列為空則是加 0
+                
+                policyGroups[pId].mv += res.mvTwd;
+                policyGroups[pId].div += res.divTwd;
+                policyGroups[pId].month += res.monthDiv;
+                policyGroups[pId].cap += res.capitalTwd;
             });
 
-            // 第三步：計算 KPI 最終彙總值
-            let k = { mv: 0, div: 0, month: 0, cap: 0, totalProfit: 0 };
-            Object.values(policyGroups).forEach(pg => {
-                k.mv += pg.totalMv;
-                k.div += pg.totalDiv;
-                k.month += pg.totalMonthDiv;
-                k.cap += pg.totalCap;
-            });
-            k.totalProfit = (k.mv + k.div) - k.cap;
-
-            // 第四步：渲染清單 (清單中每列的 Profit 修正為顯示該列自身的貢獻損益)
+            // 總 KPI 計算
+            let k = { mv: 0, div: 0, month: 0, cap: 0, profit: 0 };
             const tbody = document.getElementById('dataTableBody');
             tbody.innerHTML = '';
-            processedRows.forEach(r => {
-                // 如果該列有本金，則該列 Profit = (現值+配息) - 本金
-                // 如果該列無本金，則該列 Profit = (現值+配息)，代表它是該保單的增長部分
-                const displayProfit = (r.mvTwd + r.divTwd) - r.capitalTwd;
-                
+
+            Object.values(policyGroups).forEach(pg => {
+                k.mv += pg.mv;
+                k.div += pg.div;
+                k.month += pg.month;
+                k.cap += pg.cap;
+
+                const pgProfit = (pg.mv + pg.div) - pg.cap;
+                const fundList = Array.from(pg.funds).join(' + ');
+
+                // 渲染列表：每一張保單號碼現在只會出現一行
                 tbody.innerHTML += `
-                    <div class="px-5 py-3 flex justify-between items-center hover:bg-slate-50 transition-colors">
-                        <div>
-                            <p class="font-black text-slate-800 text-xs">${r['客戶名稱']}</p>
-                            <p class="text-[8px] text-slate-400 font-bold tracking-tight uppercase">${r['保單號碼']} | ${r['基金標的']}</p>
+                    <div class="px-5 py-4 flex justify-between items-center hover:bg-slate-50 transition-colors">
+                        <div class="flex-1 pr-4">
+                            <p class="font-black text-slate-800 text-sm">${pg.clientName}</p>
+                            <p class="text-[9px] text-slate-400 font-bold tracking-tight uppercase">${pg.policyId}</p>
+                            <p class="text-[9px] text-indigo-500 font-black mt-0.5">${fundList}</p>
                         </div>
                         <div class="text-right">
-                            <p class="font-black text-xs ${displayProfit >= 0 ? 'text-emerald-500' : 'text-rose-500'}">
-                                ${displayProfit >= 0 ? '+' : ''}${Math.round(displayProfit).toLocaleString()}
+                            <p class="font-black text-sm ${pgProfit >= 0 ? 'text-emerald-500' : 'text-rose-500'}">
+                                ${pgProfit >= 0 ? '+' : ''}${Math.round(pgProfit).toLocaleString()}
                             </p>
-                            <p class="text-[8px] text-slate-400 font-bold uppercase tracking-widest">Row P/L</p>
+                            <div class="flex flex-col text-[8px] font-black text-slate-400 uppercase tracking-tighter">
+                                <span>市值: ${Math.round(pg.mv).toLocaleString()}</span>
+                                <span>本金: ${Math.round(pg.cap).toLocaleString()}</span>
+                            </div>
                         </div>
                     </div>`;
             });
 
-            // 第五步：更新 KPI 卡片顯示
-            const fluctAmt = k.mv - k.cap;
-            const fluctPct = k.cap > 0 ? (fluctAmt / k.cap) * 100 : 0;
-            const totalReturnRate = k.cap > 0 ? (((k.div + k.mv) / k.cap) - 1) * 100 : 0;
-            const annualYield = k.mv > 0 ? (k.month * 12 / k.mv) * 100 : 0;
-            const payback = k.cap > 0 ? ((k.div / k.cap) * 100).toFixed(2) : "0.00";
+            k.profit = (k.mv + k.div) - k.cap;
 
+            // 更新 KPI 卡片
             document.getElementById('kpi1').innerText = '$' + Math.round(k.mv).toLocaleString();
             document.getElementById('kpi2').innerText = '$' + Math.round(k.cap).toLocaleString();
             document.getElementById('kpi3').innerText = '$' + Math.round(k.div).toLocaleString();
             document.getElementById('kpi4').innerText = '$' + Math.round(k.month).toLocaleString();
-            document.getElementById('kpi5').innerText = '$' + Math.round(k.totalProfit).toLocaleString();
+            document.getElementById('kpi5').innerText = '$' + Math.round(k.profit).toLocaleString();
+
+            // 處理百分比顯示
+            const fluctPct = k.cap > 0 ? ((k.mv - k.cap) / k.cap * 100) : 0;
+            const totalReturnRate = k.cap > 0 ? (((k.div + k.mv) / k.cap) - 1) * 100 : 0;
+            const annualYield = k.mv > 0 ? (k.month * 12 / k.mv) * 100 : 0;
+            const payback = k.cap > 0 ? ((k.div / k.cap) * 100).toFixed(2) : "0.00";
 
             const pctEl = document.getElementById('marketFluctPercent');
             const yieldEl = document.getElementById('annualDivYield');
