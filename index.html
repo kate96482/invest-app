@@ -89,12 +89,7 @@
     </div>
 
     <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js').catch(err => console.log('SW register failed:', err));
-            });
-        }
-
+        
         (function(document, navigator, standalone) {
             if ((standalone in navigator) && navigator[standalone]) {
                 document.addEventListener('click', function(e) {
