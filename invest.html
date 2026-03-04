@@ -299,14 +299,12 @@
             if (!file) return;
 
             document.getElementById('loadingOverlay').classList.remove('hidden');
-            
             await syncMarketData();
 
             const reader = new FileReader();
             reader.onload = function(event) {
                 const workbook = XLSX.read(new Uint8Array(event.target.result), {type: 'array'});
                 rawData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-                
                 initDashboard();
                 setTimeout(() => document.getElementById('loadingOverlay').classList.add('hidden'), 500);
             };
@@ -323,26 +321,47 @@
             
             let mvTwd, divTwd, capitalTwd, totalProfitTwd, monthDiv;
 
-            if (currency === '美元' || currency === 'USD') {
+            // 修正點：判斷是否為美元或人民幣相關基金，只要是，就必須乘匯率
+            const isUsdFund = fundName === 'DSP5'; 
+            const isCnyFund = fundName === 'NGB2';
+
+            if (isUsdFund || currency === '美元' || currency === 'USD') {
                 const capitalExchangeRate = 30.0; 
+                // 現值與月配息統一使用最新匯率 (currentUsdRate)
                 mvTwd = units * fund.nav * currentUsdRate;
                 monthDiv = units * fund.divRate * currentUsdRate;
-                divTwd = cumDiv * currentUsdRate;
-                capitalTwd = capital * capitalExchangeRate;
-                totalProfitTwd = (cumDiv + (units * fund.nav)) * currentUsdRate - capitalTwd;
-            } else if (currency === '人民幣' || currency === 'CNY') {
+
+                // 如果 Excel 幣別是新台幣，代表本金與累積配息已經是台幣，不重複乘匯率
+                if (currency === '新台幣' || currency === 'TWD') {
+                    divTwd = cumDiv;
+                    capitalTwd = capital;
+                } else {
+                    divTwd = cumDiv * currentUsdRate;
+                    capitalTwd = capital * capitalExchangeRate;
+                }
+                totalProfitTwd = (divTwd + mvTwd) - capitalTwd;
+
+            } else if (isCnyFund || currency === '人民幣' || currency === 'CNY') {
                 const cnyCapitalExchangeRate = 4.5; 
                 mvTwd = units * fund.nav * currentCnyRate;
                 monthDiv = units * fund.divRate * currentCnyRate;
-                divTwd = cumDiv * currentCnyRate;
-                capitalTwd = capital * cnyCapitalExchangeRate;
-                totalProfitTwd = (cumDiv + (units * fund.nav)) * currentCnyRate - capitalTwd;
+
+                if (currency === '新台幣' || currency === 'TWD') {
+                    divTwd = cumDiv;
+                    capitalTwd = capital;
+                } else {
+                    divTwd = cumDiv * currentCnyRate;
+                    capitalTwd = capital * cnyCapitalExchangeRate;
+                }
+                totalProfitTwd = (divTwd + mvTwd) - capitalTwd;
+
             } else {
+                // 純台幣標的
                 mvTwd = units * (fund.nav || 0);
                 monthDiv = units * (fund.divRate || 0);
                 divTwd = cumDiv; 
                 capitalTwd = capital; 
-                totalProfitTwd = (cumDiv + mvTwd) - capital;
+                totalProfitTwd = (divTwd + mvTwd) - capital;
             }
             
             return { mvTwd, divTwd, totalProfitTwd, monthDiv, capitalTwd };
@@ -355,12 +374,10 @@
             
             const selector = document.getElementById('clientSelector');
             selector.innerHTML = '';
-            // 取得所有不重複客戶名稱
             const clients = [...new Set(rawData.map(i => i['客戶名稱']))];
             clients.forEach(c => {
                 const opt = document.createElement('option'); opt.value = c; opt.innerText = c; selector.appendChild(opt);
             });
-
             switchView('overall');
         }
 
@@ -374,47 +391,28 @@
         function switchView(view) {
             currentView = view;
             const isOverall = view === 'overall';
-            
             document.getElementById('btnOverall').className = isOverall ? 'active' : 'inactive';
             document.getElementById('btnIndividual').className = !isOverall ? 'active' : 'inactive';
             document.getElementById('switchBg').style.transform = isOverall ? 'translateX(0)' : 'translateX(100%)';
-            
             document.getElementById('individualControls').classList.toggle('hidden', isOverall);
             document.getElementById('individualTrend').classList.toggle('hidden', isOverall);
             document.getElementById('pageTitle').innerText = isOverall ? '總體資產' : '個人資產';
             document.getElementById('tableTitle').innerText = isOverall ? '全體資產名細' : '個人資產名細';
-
-            if (isOverall) {
-                renderData('all');
-            } else {
-                renderData(document.getElementById('clientSelector').value);
-            }
+            renderData(isOverall ? 'all' : document.getElementById('clientSelector').value);
         }
 
-        document.getElementById('clientSelector').addEventListener('change', e => {
-            renderData(e.target.value);
-        });
+        document.getElementById('clientSelector').addEventListener('change', e => renderData(e.target.value));
 
         function renderData(targetName) {
             const isAll = targetName === 'all';
             const filtered = isAll ? rawData : rawData.filter(d => d['客戶名稱'] === targetName);
-            
-            // 初始化累計值
             let k = { mv: 0, div: 0, month: 0, total: 0, cap: 0 };
-            
             const tbody = document.getElementById('dataTableBody');
             tbody.innerHTML = '';
 
-            // 處理每一筆資料並累加到總額中
             filtered.forEach(r => {
                 const res = calcRow(r);
-                k.mv += res.mvTwd; 
-                k.div += res.divTwd; 
-                k.month += res.monthDiv; 
-                k.total += res.totalProfitTwd; 
-                k.cap += res.capitalTwd;
-                
-                // 動態生成每一筆標的的明細列
+                k.mv += res.mvTwd; k.div += res.divTwd; k.month += res.monthDiv; k.total += res.totalProfitTwd; k.cap += res.capitalTwd;
                 tbody.innerHTML += `
                     <div class="px-5 py-3 flex justify-between items-center hover:bg-slate-50 transition-colors">
                         <div>
@@ -430,14 +428,12 @@
                     </div>`;
             });
 
-            // 計算百分比指標（基於已加總的數據）
             const fluctAmt = k.mv - k.cap;
             const fluctPct = k.cap > 0 ? (fluctAmt / k.cap) * 100 : 0;
             const totalReturnRate = k.cap > 0 ? (((k.div + k.mv) / k.cap) - 1) * 100 : 0;
             const annualYield = k.mv > 0 ? (k.month * 12 / k.mv) * 100 : 0;
             const payback = k.cap > 0 ? ((k.div / k.cap) * 100).toFixed(2) : "0.00";
 
-            // 更新介面上的 KPI 大數字
             document.getElementById('kpi1').innerText = '$' + Math.round(k.mv).toLocaleString();
             document.getElementById('kpi2').innerText = '$' + Math.round(k.cap).toLocaleString();
             document.getElementById('kpi3').innerText = '$' + Math.round(k.div).toLocaleString();
@@ -449,21 +445,16 @@
             const retEl = document.getElementById('totalReturnRate');
 
             if (isAll) {
-                pctEl.classList.add('hidden');
-                yieldEl.classList.add('hidden');
-                retEl.classList.add('hidden');
+                pctEl.classList.add('hidden'); yieldEl.classList.add('hidden'); retEl.classList.add('hidden');
             } else {
                 pctEl.classList.remove('hidden');
                 pctEl.innerText = '市場波動 ' + (fluctPct >= 0 ? '+' : '') + fluctPct.toFixed(2) + '%';
                 pctEl.className = `text-[9px] font-black px-1.5 py-0.5 rounded-md ${fluctPct >= 0 ? 'text-emerald-600 bg-emerald-100/50' : 'text-rose-600 bg-rose-100/50'}`;
-                
                 yieldEl.classList.remove('hidden');
                 yieldEl.innerText = '年化配息率 ' + annualYield.toFixed(2) + '%';
-
                 retEl.classList.remove('hidden');
                 retEl.innerText = (totalReturnRate >= 0 ? '+' : '') + totalReturnRate.toFixed(2) + '%';
                 retEl.className = `text-[10px] font-black ${totalReturnRate >= 0 ? 'text-emerald-600' : 'text-rose-600'}`;
-
                 document.getElementById('indivDivTotal').innerText = '$' + Math.round(k.div).toLocaleString();
                 document.getElementById('indivPaybackRate').innerText = payback + '%';
             }
