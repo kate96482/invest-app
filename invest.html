@@ -2,9 +2,9 @@
 <html lang="zh-TW">
 <head>
     <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0f172a">
-<link rel="apple-touch-icon" href="icon-192.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>資產分析助手 Pro</title>
@@ -124,6 +124,12 @@
     </div>
 
     <div class="max-w-md mx-auto px-4 py-6 max-container">
+        <div class="mb-4">
+            <a href="index.html" class="inline-flex items-center text-[10px] font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-[0.2em]">
+                <span class="mr-1 text-base">←</span> 返回首頁
+            </a>
+        </div>
+
         <header class="mb-6 flex justify-between items-center">
             <div class="flex items-center gap-4">
                 <div id="switchContainer" class="view-switch hidden">
@@ -165,7 +171,7 @@
                         <p id="kpi1Label" class="text-[9px] font-black opacity-40 mb-1 tracking-[0.2em] uppercase">Total Market Value</p>
                         <p id="kpi1" class="text-3xl md:text-4xl font-black tracking-tight">$0</p>
                     </div>
-                    <div class="absolute -right-3 -bottom-4 text-white/5 text-6xl md:text-7xl font-black italic uppercase">Asset</div>
+                    <div class="absolute -right-4 -bottom-4 text-white/5 text-6xl md:text-7xl font-black italic uppercase select-none pointer-events-none">Asset</div>
                 </div>
 
                 <div class="bg-blue-50/50 p-4 md:p-5 rounded-[1.8rem] border border-blue-100/50 flex flex-col justify-end min-h-[100px] relative">
@@ -249,7 +255,6 @@
             "NGB2": { nav: 41.81, divRate: 0.59 } 
         };
 
-        // 核心修正：同步 function
         async function syncMarketData() {
             try {
                 const response = await fetch(SHEET_CSV_URL);
@@ -277,7 +282,6 @@
 
             document.getElementById('loadingOverlay').classList.remove('hidden');
             
-            // 先同步雲端數據，等它完成
             await syncMarketData();
 
             const reader = new FileReader();
@@ -299,14 +303,21 @@
             const fundName = (row['基金標的'] || '').toString().trim();
             const fund = FUND_PARAMS[fundName] || { nav: 0, divRate: 0 };
             
-            const mvTwd = units * fund.nav * currentUsdRate;
-            const monthDiv = units * fund.divRate * currentUsdRate;
+            // 核心邏輯修改：投入本金與累積配息使用固定匯率 30，其餘使用即時匯率
+            const capitalExchangeRate = 30.0; 
+            
+            const mvTwd = units * fund.nav * currentUsdRate; // 市值始終用即時匯率
+            const monthDiv = units * fund.divRate * currentUsdRate; // 預估月配息用即時匯率
             let divTwd, capitalTwd, totalProfitTwd;
             
             if (currency === '美元' || currency === 'USD') {
+                // 使用固定匯率計算本金與累積配息的台幣價值
                 divTwd = cumDiv * currentUsdRate;
-                capitalTwd = capital * currentUsdRate;
-                totalProfitTwd = (cumDiv + (units * fund.nav) - capital) * currentUsdRate;
+                capitalTwd = capital * capitalExchangeRate;
+                
+                // 總報酬 = (累積配息(USD) + 目前市值(USD)) * 即時匯率 - 投入本金(TWD)
+                // 這樣計算會包含本金的匯率增值損益
+                totalProfitTwd = (cumDiv + (units * fund.nav)) * currentUsdRate - capitalTwd;
             } else {
                 divTwd = cumDiv; 
                 capitalTwd = capital; 
@@ -427,5 +438,3 @@
     </script>
 </body>
 </html>
-
-
