@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>財富管理</title>
+    <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; }
+        .feature-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .feature-card:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1); }
+    </style>
+</head>
+<body class="p-6">
+    <div class="max-w-4xl mx-auto py-12">
+        <header class="mb-12">
+            <h1 class="text-4xl font-black text-slate-900 mb-2">管理中心</h1>
+            <p class="text-slate-500 font-bold uppercase tracking-widest text-sm">Asset & Tax Management System</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <a href="invest.html" class="feature-card bg-slate-900 p-8 rounded-[2.5rem] text-white flex flex-col justify-between h-64 relative overflow-hidden group">
+                <div class="relative z-10">
+                    <div class="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-amber-400 transition-colors">
+                        <span class="text-2xl">📊</span>
+                    </div>
+                    <h2 class="text-2xl font-black">資產分析助手</h2>
+                    <p class="text-slate-400 mt-2 text-sm font-bold">即時追蹤市場價值與配息趨勢</p>
+                </div>
+                <div class="relative z-10 flex items-center text-xs font-black tracking-widest uppercase text-amber-400">
+                    進入系統 <span class="ml-2">→</span>
+                </div>
+                <div class="absolute -right-4 -bottom-4 text-white/5 text-8xl font-black italic uppercase select-none">Invest</div>
+            </a>
+
+            <div class="feature-card bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col justify-between h-64 opacity-60">
+                <div>
+                    <div class="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
+                        <span class="text-2xl">📜</span>
+                    </div>
+                    <h2 class="text-2xl font-black text-slate-800">稅務規劃系統</h2>
+                    <p class="text-slate-400 mt-2 text-sm font-bold">即將推出：遺贈稅與所得稅計算</p>
+                </div>
+                <div class="text-[10px] font-black tracking-widest uppercase text-slate-300">
+                    Under Development
+                </div>
+            </div>
+
+            <div class="feature-card bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col justify-between h-64 opacity-60">
+                <div>
+                    <div class="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
+                        <span class="text-2xl">🛡️</span>
+                    </div>
+                    <h2 class="text-2xl font-black text-slate-800">風險控管</h2>
+                    <p class="text-slate-400 mt-2 text-sm font-bold">資產比例與風險評估</p>
+                </div>
+                <div class="text-[10px] font-black tracking-widest uppercase text-slate-300">
+                    Under Development
+                </div>
+            </div>
+        </div>
+
+        <footer class="mt-20 text-center">
+            <p class="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">© 2026 Asset Management System Pro</p>
+        </footer>
+    </div>
+
+    <script>
+        // 在入口網頁註冊 Service Worker，這樣整個網域都能變 App
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(err => console.log('SW register failed:', err));
+            });
+        }
+    </script>
+</body>
+</html>
