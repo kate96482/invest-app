@@ -257,45 +257,63 @@
 
         const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQHKETau10x9H1XCGiO-nDUdlgB7eMIYMTi25y5-ZYiUECEDnNHN22CxxVvitdmTLUZAHSVBrZCbK2P/pub?gid=0&single=true&output=csv"; 
 
-        const FUND_PARAMS = { 
+        // 動態資料池：自動從 Sheets 抓取
+        let FUND_PARAMS = { 
             "DSP5": { nav: 8.4495, divRate: 0.055 }, 
             "NGB2": { nav: 41.81, divRate: 0.59 } 
         };
+        let EXCHANGE_RATES = { "USD": 32.50 }; // 預設匯率
 
         async function syncMarketData() {
             try {
                 const response = await fetch(SHEET_CSV_URL);
                 const text = await response.text();
                 const rows = text.split('\n').map(row => row.split(','));
+                
                 rows.forEach(r => {
                     const key = (r[0] || '').trim();
                     const val = parseFloat(r[1]);
+                    
                     if (!isNaN(val)) {
-                        if (key === "DSP5_NAV") FUND_PARAMS["DSP5"].nav = val;
-                        if (key === "NGB2_NAV") FUND_PARAMS["NGB2"].nav = val;
-                        if (key === "USD_TWD") currentUsdRate = val;
+                        // 1. 處理匯率 (XXX_TWD，包含你新增的 CNY_TWD)
+                        if (key.endsWith("_TWD")) {
+                            const currencyCode = key.replace("_TWD", "");
+                            EXCHANGE_RATES[currencyCode] = val;
+                            if (currencyCode === "USD") currentUsdRate = val;
+                        }
+                        
+                        // 2. 處理淨值 (XXX_NAV)
+                        if (key.endsWith("_NAV")) {
+                            const fundCode = key.replace("_NAV", "");
+                            if (!FUND_PARAMS[fundCode]) FUND_PARAMS[fundCode] = { nav: 0, divRate: 0 };
+                            FUND_PARAMS[fundCode].nav = val;
+                        }
+
+                        // 3. 處理每單位配息 (XXX_DIV) - 新增功能
+                        if (key.endsWith("_DIV")) {
+                            const fundCode = key.replace("_DIV", "");
+                            if (!FUND_PARAMS[fundCode]) FUND_PARAMS[fundCode] = { nav: 0, divRate: 0 };
+                            FUND_PARAMS[fundCode].divRate = val;
+                        }
                     }
                 });
+
                 document.getElementById('rateDisplay').innerText = currentUsdRate.toFixed(2);
-                console.log("雲端數據已更新:", FUND_PARAMS, currentUsdRate);
+                console.log("雲端動態同步完成:", { EXCHANGE_RATES, FUND_PARAMS });
             } catch (e) { 
-                console.error("同步失敗，將使用預設值:", e); 
+                console.error("同步失敗:", e); 
             }
         }
 
         document.getElementById('upload').addEventListener('change', async function(e) {
             const file = e.target.files[0];
             if (!file) return;
-
             document.getElementById('loadingOverlay').classList.remove('hidden');
-            
             await syncMarketData();
-
             const reader = new FileReader();
             reader.onload = function(event) {
                 const workbook = XLSX.read(new Uint8Array(event.target.result), {type: 'array'});
                 rawData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-                
                 initDashboard();
                 setTimeout(() => document.getElementById('loadingOverlay').classList.add('hidden'), 500);
             };
@@ -306,30 +324,42 @@
             const units = parseFloat(row['累積單位數']) || 0;
             const capital = parseFloat(row['投資本金']) || 0;
             const cumDiv = parseFloat(row['累積配息']) || 0;
-            const currency = (row['幣別'] || '').toString().trim();
+            const currencyRaw = (row['幣別'] || '').toString().trim().toUpperCase();
             const fundName = (row['基金標的'] || '').toString().trim();
             const fund = FUND_PARAMS[fundName] || { nav: 0, divRate: 0 };
             
-            // 核心邏輯修改：投入本金與累積配息使用固定匯率 30，其餘使用即時匯率
-            const capitalExchangeRate = 30.0; 
+            // 幣別映射處理
+            let currency = currencyRaw;
+            if (currency === '美元' || currency === 'USD') currency = 'USD';
+            if (currency === '人民幣' || currency === 'CNY') currency = 'CNY';
+            if (currency === '台幣' || currency === 'TWD') currency = 'TWD';
+
+            // 取得該幣別的即時匯率，找不到則預設為 1 (台幣)
+            const liveRate = EXCHANGE_RATES[currency] || 1;
             
-            const mvTwd = units * fund.nav * currentUsdRate; // 市值始終用即時匯率
-            const monthDiv = units * fund.divRate * currentUsdRate; // 預估月配息用即時匯率
+            // 計算數值
+            const mvTwd = units * fund.nav * liveRate; 
+            const monthDiv = units * fund.divRate * liveRate; 
+            
             let divTwd, capitalTwd, totalProfitTwd;
+            const capitalExchangeRate = 30.0; // 你要求的美元固定本金匯率
             
-            if (currency === '美元' || currency === 'USD') {
-                // 使用固定匯率計算本金與累積配息的台幣價值
-                divTwd = cumDiv * currentUsdRate;
+            if (currency === 'USD') {
+                divTwd = cumDiv * liveRate;
                 capitalTwd = capital * capitalExchangeRate;
-                
-                // 總報酬 = (累積配息(USD) + 目前市值(USD)) * 即時匯率 - 投入本金(TWD)
-                // 這樣計算會包含本金的匯率增值損益
-                totalProfitTwd = (cumDiv + (units * fund.nav)) * currentUsdRate - capitalTwd;
+                totalProfitTwd = (cumDiv + (units * fund.nav)) * liveRate - capitalTwd;
+            } else if (currency === 'CNY') {
+                // 人民幣資產計算
+                divTwd = cumDiv * liveRate;
+                capitalTwd = capital * liveRate; 
+                totalProfitTwd = (cumDiv + (units * fund.nav)) * liveRate - capitalTwd;
             } else {
+                // 台幣
                 divTwd = cumDiv; 
                 capitalTwd = capital; 
                 totalProfitTwd = (cumDiv + mvTwd) - capital;
             }
+            
             return { mvTwd, divTwd, totalProfitTwd, monthDiv, capitalTwd };
         }
 
@@ -337,14 +367,12 @@
             document.getElementById('dashboard').classList.remove('hidden');
             document.getElementById('uploadArea').classList.add('hidden');
             document.getElementById('switchContainer').classList.remove('hidden');
-            
             const selector = document.getElementById('clientSelector');
             selector.innerHTML = '';
             const clients = [...new Set(rawData.map(i => i['客戶名稱']))];
             clients.forEach(c => {
                 const opt = document.createElement('option'); opt.value = c; opt.innerText = c; selector.appendChild(opt);
             });
-
             switchView('overall');
         }
 
@@ -358,39 +386,29 @@
         function switchView(view) {
             currentView = view;
             const isOverall = view === 'overall';
-            
             document.getElementById('btnOverall').className = isOverall ? 'active' : 'inactive';
             document.getElementById('btnIndividual').className = !isOverall ? 'active' : 'inactive';
             document.getElementById('switchBg').style.transform = isOverall ? 'translateX(0)' : 'translateX(100%)';
-            
             document.getElementById('individualControls').classList.toggle('hidden', isOverall);
             document.getElementById('individualTrend').classList.toggle('hidden', isOverall);
             document.getElementById('pageTitle').innerText = isOverall ? '總體資產' : '個人資產';
             document.getElementById('tableTitle').innerText = isOverall ? '全體資產名細' : '個人資產名細';
-
-            if (isOverall) {
-                renderData('all');
-            } else {
-                renderData(document.getElementById('clientSelector').value);
-            }
+            if (isOverall) renderData('all');
+            else renderData(document.getElementById('clientSelector').value);
         }
 
-        document.getElementById('clientSelector').addEventListener('change', e => {
-            renderData(e.target.value);
-        });
+        document.getElementById('clientSelector').addEventListener('change', e => renderData(e.target.value));
 
         function renderData(targetName) {
             const isAll = targetName === 'all';
             const filtered = isAll ? rawData : rawData.filter(d => d['客戶名稱'] === targetName);
             let k = { mv: 0, div: 0, month: 0, total: 0, cap: 0 };
-            
             const tbody = document.getElementById('dataTableBody');
             tbody.innerHTML = '';
 
             filtered.forEach(r => {
                 const res = calcRow(r);
                 k.mv += res.mvTwd; k.div += res.divTwd; k.month += res.monthDiv; k.total += res.totalProfitTwd; k.cap += res.capitalTwd;
-                
                 tbody.innerHTML += `
                     <div class="px-5 py-3 flex justify-between items-center hover:bg-slate-50 transition-colors">
                         <div>
@@ -445,6 +463,3 @@
     </script>
 </body>
 </html>
-
-
-
