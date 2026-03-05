@@ -262,7 +262,8 @@
         let currentCnyRate = 4.50; 
         let currentView = 'overall'; 
 
-        const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQHKETau10x9H1XCGiO-nDUdlgB7eMIYMTi25y5-ZYiUECEDnNHN22CxxVvitdmTLUZAHSVBrZCbK2P/pub?gid=0&single=true&output=csv"; 
+        // 請在此處貼入你部署 Apps Script 後得到的「網頁應用程式 URL」
+        const SHEET_API_URL = "https://script.google.com/macros/s/AKfycbzX1kkE4gGZkRqn3xSsvjPCtNt7GKoxnoHukynDlh5UaiFkJik7c_IMYHf7BwkHw7ni/exec"; 
 
         const FUND_PARAMS = { 
             "DSP5": { nav: 0, divRate: 0 }, 
@@ -277,25 +278,25 @@
 
         async function syncMarketData() {
             try {
-                const response = await fetch(`${SHEET_CSV_URL}&t=${new Date().getTime()}`);
-                const text = await response.text();
-                const rows = text.split('\n').map(row => row.split(','));
-                rows.forEach(r => {
-                    const key = (r[0] || '').trim();
-                    const val = parseFloat(r[1]);
-                    if (!isNaN(val)) {
-                        // 自動對應所有標的的 NAV 和 DIV
-                        Object.keys(FUND_PARAMS).forEach(f => {
-                            if (key === `${f}_NAV`) FUND_PARAMS[f].nav = val;
-                            if (key === `${f}_DIV`) FUND_PARAMS[f].divRate = val;
-                        });
-                        if (key === "USD_TWD") currentUsdRate = val;
-                        if (key === "CNY_TWD") currentCnyRate = val;
-                    }
+                const response = await fetch(`${SHEET_API_URL}?t=${new Date().getTime()}`);
+                const data = await response.json();
+
+                // 1. 更新匯率 (對應 USD_TWD, CNY_TWD)
+                if (data["USD_TWD"]) currentUsdRate = data["USD_TWD"];
+                if (data["CNY_TWD"]) currentCnyRate = data["CNY_TWD"];
+
+                // 2. 更新標的參數 (對應 _NAV 與 _DIV)
+                Object.keys(FUND_PARAMS).forEach(f => {
+                    if (data[`${f}_NAV`] !== undefined) FUND_PARAMS[f].nav = data[`${f}_NAV`];
+                    if (data[`${f}_DIV`] !== undefined) FUND_PARAMS[f].divRate = data[`${f}_DIV`];
                 });
+
                 document.getElementById('rateDisplay').innerText = currentUsdRate.toFixed(2);
                 document.getElementById('cnyRateDisplay').innerText = currentCnyRate.toFixed(2);
-            } catch (e) { console.error("同步失敗:", e); }
+                console.log("數據同步成功:", FUND_PARAMS);
+            } catch (e) { 
+                console.error("同步失敗:", e); 
+            }
         }
 
         document.getElementById('upload').addEventListener('change', async function(e) {
